@@ -1,6 +1,5 @@
 """ JobDB class and associated functions and methods """
 #pylint: disable=too-many-lines
-global pbs_misc
 
 import sqlite3
 import os

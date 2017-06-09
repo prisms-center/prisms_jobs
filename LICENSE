@@ -1,9 +1,13 @@
 This directory contains the pbs Python module and related scripts developed 
-by the PRISMS Center at the University of Michigan, Ann Arbor, USA.
+by the PRISMS Center at the University of Michigan, Ann Arbor, USA, and
+the Van der Ven group, originally at the University of Michigan and 
+currently at the University of California Santa Barbara.
 
 (c) 2014 The Regents of the University of Michigan
+(c) 2015 The Regents of the University of California
 
 PRISMS Center http://prisms.engin.umich.edu 
+contact: casm-developers@lists.engr.ucsb.edu
 
 This code is a free software; you can use it, redistribute it,
 and/or modify it under the terms of the GNU Lesser General Public

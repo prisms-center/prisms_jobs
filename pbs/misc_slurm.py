@@ -1,4 +1,4 @@
-""" Misc functions for interfacing between torque and the pbs module """
+""" Misc functions for interfacing between slurm and the pbs module """
 
 #pylint: disable=line-too-long, too-many-locals, too-many-branches
 

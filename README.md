@@ -1,9 +1,10 @@
 pbs
 ===
 
-A python package for submitting and managing PBS jobs
+A python package for submitting and managing cluster jobs using PBS (TORQUE) or SLURM.
 
-This code is developed by the PRedictive Integrated Structural Materials Science Center (PRISMS), at the University of Michigan, which is supported by the U.S. Department of Energy, Office of Basic Energy Sciences, Division of Materials Sciences and Engineering under Award #DE-SC0008637.
+This code is developed by the PRedictive Integrated Structural Materials Science Center (PRISMS), at the University of Michigan, which is supported by the U.S. Department of Energy, Office of Basic Energy Sciences, Division of Materials Sciences and Engineering under Award #DE-SC0008637, and the Van der Ven group, originally at the University of Michigan and 
+currently at the University of California Santa Barbara.
 
 
 ## Summary
@@ -62,19 +63,21 @@ Jobs not marked 'auto' are shown with the status "Check" in 'pstat' until the us
         git clone https://github.com/prisms-center/pbs.git
         cd pbs
 
-2. Checkout the branch containing the version you wish to install. Latest is ``v1.0.0``:
+2. Checkout the branch/tag containing the version you wish to install. Latest is ``v2.0.0``:
 
-        git checkout v1.0.0
+        git checkout v2.0.0
 
 2. From the root directory of the repository:
 
-        make install
-
-    You might need to set the following environment variables:
-    	
-    - BIN: This specifies where the scripts ``pstat``, ``psub``, and ``taskmaster`` will be installed. If not set, the default location is ``/usr/local/bin``
-    	
-    - PYINSTALL: This specifies where to install the Python package ``pbs``. If not set, it uses the default distutils location.
+        pip install .
+   
+   or, to install in your user directory:
+   
+   		pip install --user .
+   
+   If installing to a user directory, you may need to set your PATH to find the installed scripts. This can be done using:
+   
+   		export PATH=$PATH:`python -m site --user-base`/bin
 
 
 ** Note for flux users: ** 
@@ -96,7 +99,9 @@ The pbs Python module contains 4 submodules:
 * **pbs.misc**: Contains functions for interacting with qstat, qsub, and qdel. Also contains functions for common conversion and environment variables.
 
 * **pbs.jobdb**: Contains the JobDB class, which allows interactions with an SQLite database containing records of PBS jobs. 
+
 * **pbs.job**: Contains the Job class, which contains all the settings for a particular job (nodes requsted, walltime, command to run, etc.).
+
 * **pbs.templates**: Specialized submodule for PRISMS on flux, but provides an example of how to create templates for particular types of Jobs. Contains templates for creating Job objects that areappropriate for PRISMS jobs, Non-PRISMS jobs, PRISMS debug queue jobs, and PRISMS special request jobs.
 
 
@@ -228,11 +233,16 @@ The 'taskmaster' script periodically monitors and re-submits 'auto' jobs as nece
 
 ## License
 
-This directory contains the pbs Python module and related scripts developed by the PRISMS Center at the University of Michigan, Ann Arbor, USA.
+This directory contains the pbs Python module and related scripts developed 
+by the PRISMS Center at the University of Michigan, Ann Arbor, USA, and
+the Van der Ven group, originally at the University of Michigan and 
+currently at the University of California Santa Barbara.
 
 (c) 2014 The Regents of the University of Michigan
+(c) 2015 The Regents of the University of California
 
 PRISMS Center http://prisms.engin.umich.edu 
+contact: casm-developers@lists.engr.ucsb.edu
 
 This code is a free software; you can use it, redistribute it,
 and/or modify it under the terms of the GNU Lesser General Public
