@@ -55,7 +55,22 @@ Jobs not marked 'auto' are shown with the status "Check" in 'pstat' until the us
 - Testing has been done using Python v2.7.5
 
 
-## Installation
+## Installation from PyPI
+
+Using ``pip``:
+
+    pip install casm-pbs
+
+or, to install in your user directory:
+   
+   	pip install --user casm-pbs
+   
+If installing to a user directory, you may need to set your PATH to find the installed scripts. This can be done using:
+   
+   	export PATH=$PATH:`python -m site --user-base`/bin
+
+
+## Installation From Source
 
 1. Clone the repository:
 
@@ -63,9 +78,9 @@ Jobs not marked 'auto' are shown with the status "Check" in 'pstat' until the us
         git clone https://github.com/prisms-center/pbs.git
         cd pbs
 
-2. Checkout the branch/tag containing the version you wish to install. Latest is ``v2.0.0``:
+2. Checkout the branch/tag containing the version you wish to install. Latest is ``v2.0.1``:
 
-        git checkout v2.0.0
+        git checkout v2.0.1
 
 2. From the root directory of the repository:
 
