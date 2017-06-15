@@ -7,20 +7,40 @@ import re
 import datetime
 import time
 import sys
-from misc import getversion, getlogin, seconds, PBSError
+from pbs.misc import getlogin, seconds, PBSError
+from distutils.spawn import find_executable
 
-def _qstat(jobid=None, username=getlogin(), full=False, version=int(getversion().split(".")[0])):
-    """Return the stdout of qstat minus the header lines.
+### Internal ###
+
+def _getversion():
+    """Returns the torque version or 0. if no ``qstat`` """
+    if find_executable("qstat") is None:
+        return 0.
+    opt = ["qstat", "--version"]
+
+    # call 'qstat' using subprocess
+    p = subprocess.Popen(opt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #pylint: disable=invalid-name
+    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
+    sout = StringIO.StringIO(stdout)
+
+    # return the version number
+    return float(sout.read().rstrip("\n").lstrip("version: ").split(".")[0])
+
+torque_version = _getversion()
+
+
+def _qstat(jobid=None, username=getlogin(), full=False):
+    """Return the stdout of ``qstat`` minus the header lines.
 
        By default, 'username' is set to the current user.
        'full' is the '-f' option
-       'id' is a string or list of strings of job ids
+       'jobid' is a string or list of strings of job ids
 
        Returns the text of qstat, minus the header lines
     """
 
     # -u and -f contradict in earlier versions of Torque
-    if full and username is not None and (version < 5.0 and jobid is None):
+    if full and username is not None and (torque_version < 5.0 and jobid is None):
         # First get all jobs by the user
         qopt = ["qselect"]
         qopt += ["-u", username]
@@ -52,7 +72,7 @@ def _qstat(jobid=None, username=getlogin(), full=False, version=int(getversion()
         elif isinstance(jobid, list):
             pass
         else:
-            print "Error in pbs.misc.qstat(). type(jobid):", type(jobid)
+            print "Error in pbs.interface.torque.qstat(). type(jobid):", type(jobid)
             sys.exit()
         opt += jobid
 
@@ -72,13 +92,24 @@ def _qstat(jobid=None, username=getlogin(), full=False, version=int(getversion()
     # return the remaining text
     return sout.read()
 
+### Required ###
+
+NAME = 'torque'
+
 def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
-    """If 'name' given, returns a list of all jobs with a particular name using qstat.
-       Else, if all=True, returns a list of all job ids by current user.
-       Else, returns this job id from environment variable PBS_JOBID (split to get just the number).
-
-       Else, returns None
-
+    """Get job IDs
+    
+    Args:
+        all (bool): If True, use ``qstat`` to query all user jobs. Else, check 
+        ``PBS_JOBID`` environment variable for ID of current job.
+        
+        name (str): If all==True, use name to filter results.
+    
+    Returns:
+        jobid (str, List(str), or None):
+            Returns a List(str) if all==True, a str if all==False and 
+            ``PBS_JOBID`` exists, else None.
+    
     """
     if all or name is not None:
         jobid = []
@@ -96,15 +127,17 @@ def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
             return os.environ['PBS_JOBID'].split(".")[0]
         else:
             return None
-            #raise PBSError(
-            #    "?",
-            #    "Could not determine jobid. 'PBS_JOBID' environment variable not found.\n"
-            #    + str(os.environ))
 
 def job_rundir(jobid):
-    """Return the directory job "id" was run in using qstat.
+    """Return the directory job was run in using ``qstat``.
 
-       Returns a dict, with id as key and rundir and value.
+    Args:
+        jobid (str or List(str)):
+            IDs of jobs to get the run directory
+    
+    Returns:
+        rundirs (dict):
+            A dict, with id:rundir pairs.
     """
     rundir = dict()
 
@@ -120,18 +153,33 @@ def job_rundir(jobid):
     return rundir
 
 def job_status(jobid=None):
-    """Return job status using qstat
+    """Return job status using ``qstat``
 
-       Returns a dict of dict, with jobid as key in outer dict.
-       Inner dict contains:
-       "name", "nodes", "procs", "walltime",
-       "jobstatus": status ("Q","C","R", etc.)
-       "qstatstr": result of qstat -f jobid, None if not found
-       "elapsedtime": None if not started, else seconds as int
-       "starttime": None if not started, else seconds since epoch as int
-       "completiontime": None if not completed, else seconds since epoch as int
+    Args:
+        jobid (None, str, or List(str)):
+            IDs of jobs to query for status. None for all user jobs.
 
-       *This should be edited to return job_status_dict()'s*
+    Returns:
+    
+        job_status (dict of dict):
+        
+            The outer dict uses jobid as key in outer dict.
+   
+            Inner dict contains:
+       
+            ===============    =====================================================
+            "name"             Job name
+            "nodes"            Number of nodes
+            "procs"            Number of processors
+            "walltime"         Walltime
+            "jobstatus"        status ("Q","C","R", etc.)
+            "qstatstr"         result of ``squeue -f jobid``, None if not found
+            "elapsedtime"      None if not started, else seconds as int
+            "starttime"        None if not started, else seconds since epoch as int
+            "completiontime"   None if not completed, else seconds since epoch as int
+
+    Note:
+        *This should be edited to return job_status_dict()'s*
     """
     status = dict()
 
@@ -228,9 +276,16 @@ def job_status(jobid=None):
     return status
 
 def submit(substr):
-    """Submit a PBS job using qsub.
+    """Submit a job using ``qsub``.
 
-       substr: The submit script string
+    Args:
+        substr (str): The submit script string
+    
+    Returns:
+        jobid (str): ID of submitted job
+    
+    Raises:
+        PBSError: If a submission error occurs
     """
 
     m = re.search(r"-N\s+(.*)\s", substr)       #pylint: disable=invalid-name
@@ -252,30 +307,59 @@ def submit(substr):
         return jobid
 
 def delete(jobid):
-    """qdel a PBS job."""
+    """``qdel`` a PBS job.
+    
+    Args:
+        jobid (str): ID of job to delete
+    
+    Returns:
+        code (int): ``qdel`` returncode
+    
+    """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["qdel", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate()        #pylint: disable=unused-variable
     return p.returncode
 
 def hold(jobid):
-    """qhold a PBS job."""
+    """``qhold`` a job.
+    
+    Args:
+        jobid (str): ID of job to hold
+    
+    Returns:
+        code (int): ``qhold`` returncode
+    
+    """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["qhold", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate()    #pylint: disable=unused-variable
     return p.returncode
 
 def release(jobid):
-    """qrls a PBS job."""
+    """``qrls`` a job.
+    
+    Args:
+        jobid (str): ID of job to release
+    
+    Returns:
+        code (int): ``qrls`` returncode
+    
+    """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["qrls", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate()    #pylint: disable=unused-variable
     return p.returncode
 
 def alter(jobid, arg):
-    """qalter a PBS job.
+    """``qalter`` a job.
 
-        'arg' is a pbs command option string. For instance, "-a 201403152300.19"
+    Args:
+        jobid (str): ID of job to alter
+        arg (str): 'arg' is a scontrol command option string. For instance, "-a 201403152300.19"
+    
+    Returns:
+        code (int): ``qalter`` returncode
     """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["qalter"] + arg.split() + [jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

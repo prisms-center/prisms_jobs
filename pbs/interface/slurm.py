@@ -1,4 +1,4 @@
-""" Misc functions for interfacing between slurm and the pbs module """
+""" Functions for interfacing between slurm and the casm-pbs module """
 
 #pylint: disable=line-too-long, too-many-locals, too-many-branches
 
@@ -12,16 +12,14 @@ import time
 # import sys
 
 ### Internal ###
-from pbs.misc import getversion, getlogin, seconds, PBSError
+from pbs.misc import getlogin, seconds, PBSError
 
-def _squeue(jobid=None, username=getlogin(), full=False, version=int(getversion().split(".")[0]), sformat=None):    #pylint: disable=unused-argument
+def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pylint: disable=unused-argument
     """Return the stdout of squeue minus the header lines.
 
        By default, 'username' is set to the current user.
        'full' is the '-f' option
        'jobid' is a string or list of strings of job ids
-       'version' is a software version number, used to
-            determine compatible ops
        'sformat' is a squeue format string (e.g., "%A %i %j %c")
 
        Returns the text of squeue, minus the header lines
@@ -101,13 +99,25 @@ def _squeue(jobid=None, username=getlogin(), full=False, version=int(getversion(
         # return the remaining text
         return sout.read()
 
+
+### Required ###
+
+NAME = 'slurm'
+
 def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
-    """If 'name' given, returns a list of all jobs with a particular name using squeue.
-       Else, if all=True, returns a list of all job ids by current user.
-       Else, returns this job id from environment variable PBS_JOBID (split to get just the number).
-
-       Else, returns None
-
+    """Get job IDs
+    
+    Args:
+        all (bool): If True, use ``squeue`` to query all user jobs. Else, check 
+        ``SLURM_JOBID`` environment variable for ID of current job.
+        
+        name (str): If all==True, use name to filter results.
+    
+    Returns:
+        jobid (str, List(str), or None):
+            Returns a List(str) if all==True, a str if all==False and 
+            ``SLURM_JOBID`` exists, else None.
+    
     """
     if all or name is not None:
         jobid = []
@@ -125,15 +135,17 @@ def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
             return os.environ['SLURM_JOBID'].split(".")[0]
         else:
             return None
-            #raise PBSError(
-            #    "?",
-            #    "Could not determine jobid. 'PBS_JOBID' environment variable not found.\n"
-            #    + str(os.environ))
 
 def job_rundir(jobid):
-    """Return the directory job "id" was run in using squeue.
+    """Return the directory job was run in using ``squeue``.
 
-       Returns a dict, with id as key and rundir and value.
+    Args:
+        jobid (str or List(str)):
+            IDs of jobs to get the run directory
+    
+    Returns:
+        rundirs (dict):
+            A dict, with id:rundir pairs.
     """
     rundir = dict()
 
@@ -149,18 +161,33 @@ def job_rundir(jobid):
     return rundir
 
 def job_status(jobid=None):
-    """Return job status using squeue
+    """Return job status using ``squeue``
 
-       Returns a dict of dict, with jobid as key in outer dict.
-       Inner dict contains:
-       "name", "nodes", "procs", "walltime",
-       "jobstatus": status ("Q","C","R", etc.)
-       "qstatstr": result of squeue -f jobid, None if not found
-       "elapsedtime": None if not started, else seconds as int
-       "starttime": None if not started, else seconds since epoch as int
-       "completiontime": None if not completed, else seconds since epoch as int
+    Args:
+        jobid (None, str, or List(str)):
+            IDs of jobs to query for status. None for all user jobs.
 
-       *This should be edited to return job_status_dict()'s*
+    Returns:
+    
+        job_status (dict of dict):
+        
+            The outer dict uses jobid as key in outer dict.
+   
+            Inner dict contains:
+       
+            ===============    =====================================================
+            "name"             Job name
+            "nodes"            Number of nodes
+            "procs"            Number of processors
+            "walltime"         Walltime
+            "jobstatus"        status ("Q","C","R", etc.)
+            "qstatstr"         result of ``squeue -f jobid``, None if not found
+            "elapsedtime"      None if not started, else seconds as int
+            "starttime"        None if not started, else seconds since epoch as int
+            "completiontime"   None if not completed, else seconds since epoch as int
+
+    Note:
+        *This should be edited to return job_status_dict()'s*
     """
     status = dict()
 
@@ -262,9 +289,16 @@ def job_status(jobid=None):
     return status
 
 def submit(substr):
-    """Submit a PBS job using sbatch.
+    """Submit a job using ``sbatch``.
 
-       substr: The submit script string
+    Args:
+        substr (str): The submit script string
+    
+    Returns:
+        jobid (str): ID of submitted job
+    
+    Raises:
+        PBSError: If a submission error occurs
     """
 
     m = re.search(r"-J\s+(.*)\s", substr)       #pylint: disable=invalid-name
@@ -286,30 +320,59 @@ def submit(substr):
         return jobid
 
 def delete(jobid):
-    """scancel a PBS job."""
+    """``scancel`` a job.
+    
+    Args:
+        jobid (str): ID of job to cancel
+    
+    Returns:
+        code (int): ``scancel`` returncode
+    
+    """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["scancel", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate()        #pylint: disable=unused-variable
     return p.returncode
 
 def hold(jobid):
-    """scontrol delay a PBS job."""
+    """``scontrol`` delay a job.
+    
+    Args:
+        jobid (str): ID of job to delay (for 30days)
+    
+    Returns:
+        code (int): ``scontrol`` returncode
+    
+    """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["scontrol", "update", "JobId=", jobid, "StartTime=", "now+30days"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate()    #pylint: disable=unused-variable
     return p.returncode
 
 def release(jobid):
-    """scontrol un-delay a PBS job."""
+    """``scontrol`` un-delay a job.
+    
+    Args:
+        jobid (str): ID of job to release
+    
+    Returns:
+        code (int): ``scontrol`` returncode
+    
+    """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["scontrol", "update", "JobId=", jobid, "StartTime=", "now"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate()    #pylint: disable=unused-variable
     return p.returncode
 
 def alter(jobid, arg):
-    """scontrol update PBS job.
+    """``scontrol`` update job.
 
-        'arg' is a pbs command option string. For instance, "-a 201403152300.19"
+    Args:
+        jobid (str): ID of job to alter
+        arg (str): 'arg' is a scontrol command option string. For instance, "-a 201403152300.19"
+    
+    Returns:
+        code (int): ``scontrol`` returncode
     """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["scontrol", "update", "JobId=", jobid] + arg.split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

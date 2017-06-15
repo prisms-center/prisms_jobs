@@ -7,14 +7,13 @@ import sys
 import socket
 import time
 import re
-# import subprocess
-# import datetime
 import json
 
-import misc
+import pbs
+import pbs.misc as misc
 
 class JobDBError(Exception):
-    """ Custom error class for JobDBs"""
+    """ Custom error class for JobDB"""
     def __init__(self, msg):
         self.msg = msg
         super(JobDBError, self).__init__()
@@ -24,7 +23,7 @@ class JobDBError(Exception):
 
 
 class EligibilityError(Exception):
-    """ TODO """  #pylint: disable=fixme
+    """ Custom error class for JobDB """  #pylint: disable=fixme
     def __init__(self, jobid, msg):
         self.jobid = jobid
         self.msg = msg
@@ -177,73 +176,45 @@ def regexp(pattern, string):
     return re.match(pattern, string) is not None
 
 class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-public-methods
-    """A PBS Job Database object"""
-
-    def __init__(self, dbpath=None, configpath=None):
-        """Construct a PBS Job Database object.
-
-           Usually this is called without arguments (pbs.JobDB()) to open or create a
+    """A PBS Job Database object
+    
+    Args:
+        dbpath (str, optional): Path to JobDB sqlite database.
+        
+            Usually this is called without arguments (pbs.JobDB()) to open or create a
             database in the default location.
 
-           If dbpath is not given, the default location is determined as follows:
-             If the PBS_JOB_DB environment variable exists, set dbpath to
-                "$PBS_JOB_DB/jobs.db" file.
-             Else, set dbpath to "$HOME/.pbs/jobs.db", where $HOME is the user's
-                home directory
-           Else:
-             dbpath: path to a JobDB database file.
+            If dbpath is not given:
+            * If the ``CASM_PBS_JOB_DB`` environment variable exists, set dbpath to
+              ``$CASM_PBS_JOB_DB/jobs.db``
+            * Else, set dbpath to "$HOME/.pbs/jobs.db", where $HOME is the user's
+              home directory
+    
+    """
 
-           If configpath is not given, the default location is determined as follows:
-             If the PBS_JOB_DB environment variable exists, set configpath to
-                "$PBS_JOB_DB/config.json" file.
-             Else, set configpath to "$HOME/.pbs/config.json", where $HOME is
-                the user's home directory
-           Else:
-             configpath: path to a pbs config file.
-
-
-        """
+    def __init__(self, dbpath=None):
 
         self.conn = None
         self.curs = None
 
         self.username = misc.getlogin()
         self.hostname = socket.gethostname()
-        self.connect(dbpath, configpath)
-
-        global misc_pbs
-
-        if self.config["software"] == "torque":
-            # import misc_torque as misc_pbs      #pylint: disable=redefined-outer-name
-            misc_pbs = __import__("pbs.misc_torque", globals(), locals(), [], -1).misc_torque
-        elif self.config["software"] == "slurm":
-            # import misc_slurm as misc
-            # import misc_torque as misc_pbs      #pylint: disable=redefined-outer-name
-            misc_pbs = __import__("pbs.misc_slurm", globals(), locals(), [], -1).misc_slurm
-        else:
-            # import misc_torque as misc_pbs      #pylint: disable=redefined-outer-name
-            misc_pbs = __import__("pbs.misc_torque", globals(), locals(), [], -1).misc_torque
+        self.connect(dbpath)
 
         # list of dict() from misc.job_status for jobs not tracked in database:
         # refreshed upon update()
         self.untracked = []
 
 
-    def connect(self, dbpath=None, configpath=None):    #pylint: disable=too-many-branches, too-many-statements
+    def connect(self, dbpath=None):    #pylint: disable=too-many-branches, too-many-statements
         """Open a connection to the jobs database.
 
-           dbpath: path to a JobDB database file.
-           configpath: path to a pbs config file.
+        Args:
+            dbpath (str): path to a JobDB database file.
 
-           If dbpath is not given:
-           If PBS_JOB_DB environment variable exists, set dbpath to "$PBS_JOB_DB/jobs.db" file.
-           Else, set dbpath to "$HOME/.pbs/jobs.db", where $HOME is the user's home directory
-
-           If configpath is not given:
-           If PBS_JOB_DB environment variable exists, set configpath to
-            "$PBS_JOB_DB/config.json" file.
-           Else, set configpath to "$HOME/.pbs/config.json", where $HOME is
-            the user's home directory
+            If dbpath is not given:
+            * If PBS_JOB_DB environment variable exists, set dbpath to "$PBS_JOB_DB/jobs.db" file.
+            * Else, set dbpath to "$HOME/.pbs/jobs.db", where $HOME is the user's home directory
 
         """
 
@@ -266,37 +237,6 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
                 print ("Error in pbs.jobdb.JobDB.connect(). argument dbpath =",
                        dbpath, "is not a file.")
                 sys.exit()
-
-
-        if configpath is None:
-            if "PBS_JOB_DB" in os.environ:
-                configpath = os.environ("PBS_JOB_DB")
-                if not os.path.isdir(configpath):
-                    print "Error in pbs.jobdb.JobDB.connect()."
-                    print "  PBS_JOB_DB:", configpath
-                    print "  Does not exist"
-                    sys.exit()
-            else:
-                configpath = os.path.join(os.environ["HOME"], ".pbs")
-                if not os.path.isdir(configpath):
-                    print "Creating directory:", configpath
-                    os.mkdir(configpath)
-            configpath = os.path.join(configpath, "config.json")
-        else:
-            if not os.path.isfile(configpath):
-                print ("Error in pbs.jobdb.JobDB.connect(). argument configpath =",
-                       configpath, "is not a file.")
-                sys.exit()
-
-
-        if not os.path.isfile(configpath):
-            print "Writing Config:", configpath
-            self.config = {"software" : misc.getsoftware(), "version" : misc.getversion()}
-            with open(configpath, "w") as my_json:
-                json.dump(self.config, my_json, indent=0)
-        else:
-            with open(configpath) as my_json:
-                self.config = json.load(my_json)
 
         if not os.path.isfile(dbpath):
             print "Creating Database:", dbpath
@@ -322,8 +262,10 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def add(self, job_status):
         """Add a record to the jobs database.
 
-           Accepts 'job_status', a dictionary of data comprising the record. Create
-           'job_status' using pbs.jobdb.job_status_dict().
+        Args:
+            job_status (dict):
+                Accepts a dictionary of data comprising the record. 
+                Create ``job_status`` using pbs.jobdb.job_status_dict().
 
         """
         (colstr, questionstr, valtuple) = sql_insert_str(job_status)
@@ -335,8 +277,8 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def update(self):
         """Update records using qstat.
 
-           Any jobs found using qstat that are not in the jobs database are
-            saved in 'self.untracked'.
+        Any jobs found using qstat that are not in the jobs database are saved 
+        in 'self.untracked'.
         """
 
         # update jobstatus
@@ -364,7 +306,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             newstatus[f["jobid"]] = "C"
 
         # get job_status dict for all jobs found with qstat
-        active_status = misc_pbs.job_status()
+        active_status = pbs.software.job_status()
 
         # reset untracked
         self.untracked = []
@@ -633,15 +575,15 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def eligible_to_continue(self, job):    #pylint: disable=no-self-use
         """ Return True if job is eligible to be continued, else return False
 
-            Job must have jobstatus="C" and taskstatus="Incomplete" and auto=1,
-                or else the job can not be continued.
+        Job must have jobstatus="C" and taskstatus="Incomplete" and auto=1,
+            or else the job can not be continued.
 
-            Args:
-                job: a sqlite3.Row, as obtained by self.select_job()
+        Args:
+            job: a sqlite3.Row, as obtained by self.select_job()
 
-            Returns:
-                (0, jobid, None) if eligible
-                (1, jobid, msg) if not eligible
+        Returns:
+            (0, jobid, None) if eligible
+            (1, jobid, msg) if not eligible
         """
         if job["jobstatus"] != "C":
             return (False, job["jobid"], "Job not eligible to continue. jobstatus = "
@@ -661,12 +603,12 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def continue_job(self, jobid=None, job=None):
         """ Resubmit one job with given jobid.
 
-            Args:
-                jobid: jobid of the job to continue
-                job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
+        Args:
+            jobid: jobid of the job to continue
+            job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
 
-            Raises:
-                EligibilityError if job not eligible to be continued
+        Raises:
+            EligibilityError if job not eligible to be continued
         """
 
         if job is None:
@@ -679,7 +621,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         wd = os.getcwd()    #pylint: disable=invalid-name
         os.chdir(job["rundir"])
 
-        new_jobid = misc_pbs.submit(qsubstr=job["qsubstr"])
+        new_jobid = pbs.software.submit(qsubstr=job["qsubstr"])
 
         self.curs.execute("UPDATE jobs SET taskstatus='Continued', modifytime=?,\
                            continuation_jobid=? WHERE jobid=?",
@@ -703,19 +645,19 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def eligible_to_abort(self, job):   #pylint: disable=no-self-use
         """ Check if job is eligible to be aborted
 
-            Jobs are eligible to be aborted if:
-                jobstatus != "C"
-                or
-                (jobstatus == "C"
-                and
-                (taskstatus == "Incomplete" or taskstatus == "Check"))
+        Jobs are eligible to be aborted if:
+            jobstatus != "C"
+            or
+            (jobstatus == "C"
+            and
+            (taskstatus == "Incomplete" or taskstatus == "Check"))
 
-            Args:
-                job: a sqlite3.Row, as obtained by self.select_job()
+        Args:
+            job: a sqlite3.Row, as obtained by self.select_job()
 
-            Returns:
-                (0, jobid, None) if eligible
-                (1, jobid, msg) if not eligible
+        Returns:
+            (0, jobid, None) if eligible
+            (1, jobid, msg) if not eligible
         """
         if job["jobstatus"] != "C":
             return (True, job["jobid"], None)
@@ -726,14 +668,14 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 
 
     def abort_job(self, jobid=None, job=None):
-        """ qdel job and mark job taskstatus as Aborted
+        """ Delete a job and mark job taskstatus as Aborted
 
-            Args:
-                jobid: jobid of the job to continue
-                job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
+        Args:
+            jobid: jobid of the job to continue
+            job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
 
-            Raises:
-                EligibilityError if job not eligible to be continued
+        Raises:
+            EligibilityError if job not eligible to be aborted
         """
 
         if job is None:
@@ -743,7 +685,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         if not eligible:
             raise EligibilityError(id, msg)
 
-        misc_pbs.delete(job["jobid"])
+        pbs.software.delete(job["jobid"])
         self.curs.execute("UPDATE jobs SET taskstatus='Aborted', modifytime=?\
                            WHERE jobid=?", (int(time.time()), job["jobid"]))
         self.conn.commit()
@@ -752,25 +694,25 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def eligible_to_delete(self, job):  #pylint: disable=no-self-use
         """ Check if job is eligible to be aborted
 
-            All jobs are eligible to be deleted
+        All jobs are eligible to be deleted
 
-            Args:
-                job: a sqlite3.Row, as obtained by self.select_job()
+        Args:
+            job: a sqlite3.Row, as obtained by self.select_job()
 
-            Returns:
-                (0, jobid, None) if eligible
-                (1, jobid, msg) if not eligible
+        Returns:
+            (0, jobid, None) if eligible
+            (1, jobid, msg) if not eligible
         """
         return (True, job["jobid"], None)
 
 
     def delete_job(self, jobid=None, job=None, series=False):
-        """ qdel job if running, and delete job from the database.
+        """ Delete job if running, and delete job from the database.
 
-             Args:
-                jobid: jobid of the job to continue
-                job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
-                series: If 'series'=True, deletes entire job series
+        Args:
+            jobid (str): jobid of the job to continue
+            job (sqlite3.Row): If this is given, jobid is not necessary and is ignored if given
+            series (bool): If 'series'=True, deletes entire job series
         """
         if job is None:
             job = self.select_job(jobid)
@@ -781,7 +723,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             jobseries = [job["jobid"]]
 
         for j in jobseries:
-            misc_pbs.delete(j)
+            pbs.software.delete(j)
             self.curs.execute("DELETE from jobs WHERE jobid=?", (j, ))
         self.conn.commit()
 
@@ -789,14 +731,14 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def eligible_to_error(self, job):   #pylint: disable=no-self-use
         """ Check if job is eligible to be marked as error
 
-            All jobs are eligible to be marked as error. (Should this exclude "Continued" jobs?)
+        All jobs are eligible to be marked as error. (Should this exclude "Continued" jobs?)
 
-            Args:
-                job: a sqlite3.Row, as obtained by self.select_job()
+        Args:
+            job: a sqlite3.Row, as obtained by self.select_job()
 
-            Returns:
-                (0, jobid, None) if eligible
-                (1, jobid, msg) if not eligible
+        Returns:
+            (0, jobid, None) if eligible
+            (1, jobid, msg) if not eligible
         """
         return (True, job["jobid"], None)
 
@@ -804,11 +746,11 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def error_job(self, message, jobid=None, job=None):
         """ Mark job taskstatus as 'Error: message'
 
-            Any job can be marked as error.  (Should this exclude "Continued" jobs?)
+        Any job can be marked as error.
 
-            Args:
-                jobid: jobid of the job to mark as error
-                job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
+        Args:
+            jobid: jobid of the job to mark as error
+            job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
 
         """
         message = "Error: " + message
@@ -822,15 +764,15 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def eligible_to_reset(self, job):   #pylint: disable=no-self-use
         """ Check if job is eligible to be reset
 
-            Jobs are eligible to be reset if they are 'auto' jobs, and
-                taskstatus == "Error:.*" or "Aborted"
+        Jobs are eligible to be reset if they are 'auto' jobs, and
+            taskstatus == "Error:.*" or "Aborted"
 
-            Args:
-                job: a sqlite3.Row, as obtained by self.select_job()
+        Args:
+            job: a sqlite3.Row, as obtained by self.select_job()
 
-            Returns:
-                (0, jobid, None) if eligible
-                (1, jobid, msg) if not eligible
+        Returns:
+            (0, jobid, None) if eligible
+            (1, jobid, msg) if not eligible
         """
         if job["auto"] != 1:
             return (False, job["jobid"], "Job not eligible to be reset. auto = " + job["auto"])
@@ -843,13 +785,15 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def reset_job(self, jobid=None, job=None):
         """ Mark job taskstatus as 'Incomplete'
 
-            Jobs are eligible to be reset if they are 'auto' jobs, and
-                taskstatus == "Error:.*" or "Aborted"
+        Jobs are eligible to be reset if they are 'auto' jobs, and
+            taskstatus == "Error:.*" or "Aborted"
 
-            Args:
-                jobid: jobid of the job to mark as error
-                job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
+        Args:
+            jobid: jobid of the job to mark as error
+            job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
 
+        Raises:
+            pbs.EligibilityError: If not job not eligible to be marked 'Complete'
         """
         if job is None:
             job = self.select_job(jobid)
@@ -866,15 +810,15 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def eligible_to_complete(self, job):    #pylint: disable=no-self-use
         """ Check if job is eligible to be completed
 
-            Jobs are eligible to be completed if:
-                taskstatus != "Complete" and taskstatus != "Continued"
+        Jobs are eligible to be completed if:
+            taskstatus != "Complete" and taskstatus != "Continued"
 
-            Args:
-                job: a sqlite3.Row, as obtained by self.select_job()
+        Args:
+            job: a sqlite3.Row, as obtained by self.select_job()
 
-            Returns:
-                (0, jobid, None) if eligible
-                (1, jobid, msg) if not eligible
+        Returns:
+            (0, jobid, None) if eligible
+            (1, jobid, msg) if not eligible
         """
         if job["taskstatus"] == "Incomplete" or job["taskstatus"] == "Check":
             return (True, job["jobid"], None)
@@ -883,7 +827,15 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 
 
     def complete_job(self, jobid=None, job=None):
-        """Mark job taskstatus as 'Complete'"""
+        """Mark job taskstatus as 'Complete'
+        
+        Args:
+            jobid (str): ID of job
+            job (sqlite3.Row object): Job record from database
+        
+        Raises:
+            pbs.EligibilityError: If not job not eligible to be marked 'Complete'
+        """
 
         if job is None:
             job = self.select_job(jobid)
@@ -899,7 +851,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 
 
 
-    def print_header(self): #pylint: disable=no-self-use
+    def _print_header(self): #pylint: disable=no-self-use
         """Print header rows for record summary"""
         print ("{0:<12} {1:<24} {2:^5} {3:^5} {4:>12} {5:^1} {6:>12} {7:<24} {8:^1} {9:<12}"
                .format("JobID", "JobName", "Nodes", "Procs", "Walltime", "S", "Runtime",
@@ -909,12 +861,13 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
                .format("-", "-", "-", "-", "-", "-", "-", "-", "-", "-"))
 
 
-    def print_record(self, r):  #pylint: disable=invalid-name, no-self-use
+    def _print_record(self, r):  #pylint: disable=invalid-name, no-self-use
         """Print record summary
 
-            r: dict-like object containing: "jobid", "jobname", "nodes", "procs",
-                                            "walltime", "jobstatus", "elapsedtime",
-                                            "taskstatus", "auto", and "continuation_jobid"
+        Args:
+            r (dict): a dict-like object containing: "jobid", "jobname", "nodes", 
+                "procs",  "walltime", "jobstatus", "elapsedtime", "taskstatus", 
+                "auto", and "continuation_jobid"
         """
 
         d = dict(r) #pylint: disable=invalid-name
@@ -931,10 +884,11 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
                        d["continuation_jobid"]))
 
 
-    def print_full_record(self, r): #pylint: disable=invalid-name, no-self-use
+    def _print_full_record(self, r): #pylint: disable=invalid-name, no-self-use
         """Print record as list of key-val pairs.
 
-            r: a dict-like object
+        Args:
+            r (dict): a dict-like object
         """
         print "#Record:"
         for key in r.keys():
@@ -951,8 +905,13 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def print_job(self, jobid=None, job=None, full=False, series=False):
         """Print job with given jobid
 
-           If full: print key-val pairs for all fields
-           If series: also print other jobs in the series
+        Args:
+            jobid (str): ID of job
+            job (sqlite3.Row object): Job record from database
+            full (bool): If True, print as key:val pair list, If (default) False,
+                print single row summary in 'qstat' style.
+            series (bool): If True, print records as groups of auto submitting job
+                series. If (default) False, print in order found.
         """
 
         if series:
@@ -961,31 +920,31 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             series = self.select_series(jobid)
             if full:
                 for r in series:    #pylint: disable=invalid-name
-                    self.print_full_record(r)
+                    self._print_full_record(r)
             else:
                 for r in series:    #pylint: disable=invalid-name
-                    self.print_record(r)
+                    self._print_record(r)
             print ""
         else:
             if job is None:
                 job = self.select_job(jobid)
 
             if full:
-                self.print_full_record(job)
+                self._print_full_record(job)
             else:
-                self.print_record(job)
+                self._print_record(job)
 
 
     def print_selected(self, curs=None, full=False, series=False):
         """Fetch and print jobs selected with SQL SELECT statement using cursor 'curs'.
 
 
-           Arguments:
-             curs: Fetch selected jobs from sqlite3 cursor 'curs'. If no 'curs'
+        Args:
+            curs: Fetch selected jobs from sqlite3 cursor 'curs'. If no 'curs'
                 given, use self.curs.
-             full: If True, print as key:val pair list, If (default) False,
+            full (bool): If True, print as key:val pair list, If (default) False,
                 print single row summary in 'qstat' style.
-             series: If True, print records as groups of auto submitting job
+            series (bool): If True, print records as groups of auto submitting job
                 series. If (default) False, print in order found.
         """
         if curs is None:
@@ -996,28 +955,28 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
                     if r["continuation_jobid"] == "-":
                         self.print_job(r["jobid"], full=full, series=series)
                 else:
-                    self.print_full_record(r)
+                    self._print_full_record(r)
         else:
             for r in sql_iter(self.curs):   #pylint: disable=invalid-name
                 if series:
                     if r["continuation_jobid"] == "-":
                         self.print_job(r["jobid"], full=full, series=series)
                 else:
-                    self.print_record(r)
+                    self._print_record(r)
 
 
     def print_untracked(self, full=False):
         """Print untracked jobs.
 
-           Untracked jobs are stored in self.untracked after calling JobDB.update().
+        Untracked jobs are stored in self.untracked after calling JobDB.update().
 
-            Arguments:
-             full: If True, print as key:val pair list, If (default) False,
+        Args:
+            full (bool): If True, print as key:val pair list, If (default) False,
                 print single row summary in 'qstat' style.
         """
         print "\n\nUntracked:"
         if not full:
-            self.print_header()
+            self._print_header()
         sort = sorted(self.untracked, key=lambda rec: rec["jobid"])
         for r in sort:  #pylint: disable=invalid-name
             tmp = dict(r)
@@ -1025,46 +984,44 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             tmp["auto"] = 0
             tmp["taskstatus"] = "Untracked"
             if full:
-                self.print_full_record(tmp)
+                self._print_full_record(tmp)
             else:
-                self.print_record(tmp)
+                self._print_record(tmp)
 
 
     def print_all(self, full=False, series=False):
         """Print all jobs
 
-           Arguments:
-             full: If True, print as key:val pair list, If (default) False,
+        Args:
+            full (bool): If True, print as key:val pair list, If (default) False,
                 print single row summary in 'qstat' style.
-             series: If True, print records as groups of auto submitting job
+            series (bool): If True, print records as groups of auto submitting job
                 series. If (default) False, print in order found.
         """
         print "\n\nTracked:"
         self.curs.execute("SELECT * FROM jobs")
         if not full:
-            self.print_header()
+            self._print_header()
         self.print_selected(full=full, series=series)
 
 
     def print_active(self, full=False, series=False):
         """Print active jobs
 
-           "Active" jobs are those with taskstatus='Incomplete' or 'Check'
+        "Active" jobs are those with taskstatus='Incomplete' or 'Check'
 
-           Arguments:
-             full: If True, print as key:val pair list, If (default) False,
+        Args:
+            full (bool): If True, print as key:val pair list. If (default) False,
                 print single row summary in 'qstat' style.
-             series: If True, print records as groups of auto submitting job
+            series (bool): If True, print records as groups of auto submitting job
                 series. If (default) False, print in order found.
         """
         print "\n\nTracked:"
         self.curs.execute("SELECT * FROM jobs WHERE taskstatus!='Complete'\
                            AND taskstatus!='Aborted' AND taskstatus!='Continued'")
         if not full:
-            self.print_header()
+            self._print_header()
         self.print_selected(full=full, series=series)
-
-
 
 # end class JobDB
 
@@ -1072,63 +1029,55 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 def complete_job(jobid=None, dbpath=None,):
     """Mark the job as 'Complete' if possible
 
-       Arguments:
-         dbpath: Path to JobDB database. If not given, use default database (see JobDB().__init__)
-         jobid: jobid str of job to mark 'Complete'. If not given, uses current job id from the
-                environment variable 'PBS_JOBID'
+    Args:
+        dbpath (str): Path to JobDB database. 
+        
+            If not given, use default database.
+        
+        jobid (str): ID of job to mark 'Complete'. 
+        
+            If not given, uses current job ID determined from the environment.
+    
+    Raises:
+        PBSError: If job ID could not be determined
     """
     db = JobDB(dbpath)  #pylint: disable=invalid-name
 
-    if db.config["software"] == "torque":
-        # import misc_torque as misc_pbs      #pylint: disable=redefined-outer-name
-        misc_pbs = __import__("pbs.misc_torque", globals(), locals(), [], -1).misc_torque
-    elif db.config["software"] == "slurm":
-        # import misc_slurm as misc
-        # import misc_torque as misc_pbs      #pylint: disable=redefined-outer-name
-        misc_pbs = __import__("pbs.misc_slurm", globals(), locals(), [], -1).misc_slurm
-    else:
-        # import misc_torque as misc_pbs      #pylint: disable=redefined-outer-name
-        misc_pbs = __import__("pbs.misc_torque", globals(), locals(), [], -1).misc_torque
-
     if jobid is None:
-        jobid = misc_pbs.job_id()
+        jobid = pbs.software.job_id()
         if jobid is None:
-            raise misc.PBSError(0, "Could not determine jobid")
+            raise pbs.PBSError(0, "Could not determine jobid")
 
-    try:
-        job = db.select_job(jobid)  #pylint: disable=unused-variable
-    except JobDBError as e: #pylint: disable=invalid-name
-        raise e
-
-    try:
-        db.complete_job(jobid)
-    except EligibilityError as e:   #pylint: disable=invalid-name
-        raise e
-
+    job = db.select_job(jobid)  #pylint: disable=unused-variable
+    db.complete_job(jobid)
     db.close()
 
 
 def error_job(message, jobid=None, dbpath=None):
-    """Mark the job as 'Complete' if possible
+    """Mark the job as 'Error: message' if possible
 
-       Arguments:
-         dbpath: Path to JobDB database. If not given, use default database (see JobDB().__init__)
-         jobid: jobid str of job to mark 'Complete'. If not given, uses current job id from the
-                environment variable 'PBS_JOBID'
+    Args:
+        message (str): Error message to save in JobDB.
+        
+        dbpath (str, optional): Path to JobDB database. 
+        
+            If not given, use default database.
+        
+        jobid (str, optional): ID of job to mark 'Error: message'. 
+        
+            If not given, uses current job ID determined from the environment.
+    
+    Raises:
+        PBSError: If job ID could not be determined
     """
     db = JobDB(dbpath)  #pylint: disable=invalid-name
     if jobid is None:
-        jobid = misc_pbs.job_id()
+        jobid = pbs.software.job_id()
         if jobid is None:
-            raise misc.PBSError(0, "Could not determine jobid")
+            raise pbs.PBSError(0, "Could not determine jobid")
 
-    try:
-        job = db.select_job(jobid)
-    except JobDBError as e: #pylint: disable=invalid-name
-        raise e
-
+    job = db.select_job(jobid)
     db.error_job(message, job=job)
-
     db.close()
 
 

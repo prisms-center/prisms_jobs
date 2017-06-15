@@ -11,35 +11,90 @@ import jobdb
 import misc
 
 class Job(object):  #pylint: disable=too-many-instance-attributes
-    """A qsub Job object.
+    """Represents a computational job
 
-    Initialize either with all the parameters, or with 'qsubstr' a PBS submit script as a string.
-    If 'qsubstr' is given, all other arguments are ignored and set using Job.read().
+    Initialize either with all the parameters, or with 'substr' a submit script as a string.
+    If 'substr' is given, all other arguments are ignored.
 
-
-    Contains variables (with example values):
-        name        "jobname"
-        account     "prismsproject_fluxoe"
-        nodes       2
-        ppn         16
-        walltime    "10:00:00"
-        pmem        "3800mb"
-        qos         "flux"
-        queue       "fluxoe"
-        exetime     "1100"
-        message     "abe"
-        email       "jdoe@umich.edu"
-        priority    "-200"
-        command     "echo \"hello\" > test.txt"
-        auto        True
-        software    "torque"
-
-        Only set to auto=True if the 'command' uses this pbs module to set itself as
-            completed when it is completed.
-           Otherwise, you may submit it extra times leading to wasted resources and
-            overwritten data.
-
-
+    Args:
+        substr (str): A submit script as a string.
+        name (str): Job name. Ex: ``"myjob-0"``
+            
+            The name specified may be up to and including 15 characters 
+            in length. It must consist of printable, non white space characters
+            with the first character alphabetic.    
+        
+        account (str):  Account name. Ex: ``"prismsproject_fluxoe"``
+        nodes (int):    Number of nodes. Ex: 2
+        ppn (int):      Processors per node. Ex: 16
+        walltime (str): Walltime (``HH:MM:SS``). Ex: ``"10:00:00"``
+        pmem (str):     Memory requsted. Ex: ``"3800mb"``
+        qos (str):      Ex: ``"flux"``
+        queue (str):    Ex: ``"fluxoe"``
+        
+        exetime (str):  Time after which the job is eligible for execution. Ex: ``"1100"``
+            
+            Has the form: ``[[[[CC]YY]MM]DD]hhmm[.SS]``
+            Create using ``pbs.misc.exetime(deltatime)``, where deltatime 
+            is a ``[[[DD:]MM:]HH:]SS`` string.
+        
+        message (str):  When to send email about the job. Ex: ``"abe"``
+            
+            The mail_options argument is a string which consists of either the single
+            character ``"n"``, or one or more of the characters ``"a"``, ``"b"``,
+            and ``"e"``.
+        
+            If the character ``"n"`` is specified, no normal mail is sent. Mail for job
+            cancels and other events outside of normal job processing are still sent.
+        
+            For the letters ``"a"``, ``"b"``, and ``"e"``:
+            
+               ===    ===
+                a     mail is sent when the job is aborted by the batch system.
+                b     mail is sent when the job begins execution.
+                e     mail is sent when the job terminates.
+               ===    ===
+        
+        email (str):  Where to send notifications.  Ex: ``"jdoe@umich.edu"``
+            
+            The email string is of the form: ``user[@host][,user[@host],...]``
+        
+        priority (str):  Priority ranges from (low) -1024 to (high) 1023. Ex: ``"-200"``
+        
+        command (str):   String with command to run by script. Ex: ``"echo \"hello\" > test.txt"``
+        
+        auto (bool, optional, Default=False):
+        
+            Indicates an automatically re-submitting job.  Ex: ``True``
+            
+            Only set to True if the command uses this pbs module to set 
+            itself as completed when it is completed. Otherwise, you may submit 
+            it extra times leading to wasted resources and overwritten data.
+        
+        software (str, optional, Default=None): 
+        
+            Job submission software to use. Ex: ``"torque"``
+            
+            Options are: ``"torque"`` or ``"slurm"``. If None, will attempt
+            to determine automatically by checking for ``qsub`` or ``sbatch``.
+    
+    Attributes:
+        name (str): Job name. Ex: ``"myjob-0"``
+        account (str):  Account name. Ex: ``"prismsproject_fluxoe"``
+        nodes (int):    Number of nodes. Ex: 2
+        ppn (int):      Processors per node. Ex: 16
+        walltime (str): Walltime (``HH:MM:SS``). Ex: ``"10:00:00"``
+        pmem (str):     Memory requsted. Ex: ``"3800mb"``
+        qos (str):      Ex: ``"flux"``
+        queue (str):    Ex: ``"fluxoe"``
+        exetime (str):  Time after which the job is eligible for execution. Ex: ``"1100"``
+        message (str):  When to send email about the job. Ex: ``"abe"``
+        email (str):  Where to send notifications.  Ex: ``"jdoe@umich.edu"``
+        priority (str):  Priority ranges from (low) -1024 to (high) 1023. Ex: ``"-200"``
+        command (str):   String with command to run by script. Ex: ``"echo \"hello\" > test.txt"``
+        auto (bool):     Indicates an automatically re-submitting job.  Ex: ``True``
+        software (str): Job submission software to use. Ex: ``"torque"``
+        
     """
 
 
@@ -137,7 +192,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
     #
 
     def sub_string(self):   #pylint: disable=too-many-branches
-        """ Write Job as a string suitable for self.software """
+        """ Output Job as a string suitable for self.software """
         if self.software.lower() == "slurm":
             ###Write this Job as a string suitable for slurm
             ### NOT USED:
@@ -204,22 +259,26 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
 
     def script(self, filename="submit.sh"):
-        """Write this Job as a bash script
+        """
+        Write this Job as a bash script
 
-        Keyword arguments:
-        filename -- name of the script (default "submit.sh")
+        Args:
+            filename (str):  Name of the script. Ex: "submit.sh"
 
         """
         with open(filename, "w") as myfile:
             myfile.write(self.sub_string())
 
-    def submit(self, add=True, dbpath=None, configpath=None):
-        """Submit this Job using qsub
+    def submit(self, add=True, dbpath=None):
+        """
+        Submit this Job using the appropriate command for self.software.
 
-           add: Should this job be added to the JobDB database?
-           dbpath: Specify a non-default JobDB database
-
-           Raises PBSError if error submitting the job.
+        Args:
+           add (bool): Should this job be added to the JobDB database?
+           dbpath (str): Specify a non-default JobDB database
+        
+        Raises:
+            PBSError: If error submitting the job.
 
         """
 
@@ -229,7 +288,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
             raise e
 
         if add:
-            db = jobdb.JobDB(dbpath=dbpath, configpath=configpath) #pylint: disable=invalid-name
+            db = jobdb.JobDB(dbpath=dbpath) #pylint: disable=invalid-name
             status = jobdb.job_status_dict(jobid=self.jobID, jobname=self.name,
                                            rundir=os.getcwd(), jobstatus="?",
                                            auto=self.auto, qsubstr=self.sub_string(),
@@ -240,15 +299,19 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
 
     def read(self, qsubstr):    #pylint: disable=too-many-branches, too-many-statements
-        """Set this Job object from string representing a PBS submit script.
+        """
+        Set this Job object from string representing a PBS submit script.
 
-           Will read many but not all valid PBS scripts.
-           Will ignore any arguments not included in pbs.Job()'s attributes.
-           Will add default optional arguments (-A, -a, -l pmem=(.*), -l qos=(.*),
-                -M, -m, -p, "Auto:") if not found
-           Will exit() if required arguments (-N, -l walltime=(.*), -l nodes=(.*):ppn=(.*),
-                -q, cd $PBS_O_WORKDIR) not found
-           Will always include -V
+        * Will read many but not all valid PBS scripts.
+        * Will ignore any arguments not included in pbs.Job()'s attributes.
+        * Will add default optional arguments (i.e. ``-A``, ``-a``, ``-l pmem=(.*)``, 
+          ``-l qos=(.*)``, ``-M``, ``-m``, ``-p``, ``"Auto:"``) if not found.
+        * Will ``exit()`` if required arguments (``-N``, ``-l walltime=(.*)``, 
+          ``-l nodes=(.*):ppn=(.*)``, ``-q``, ``cd $PBS_O_WORKDIR``) not found.
+        * Will always include ``-V``
+        
+        Args:
+            qsubstr (str): A submit script as a string
 
         """
         s = StringIO.StringIO(qsubstr)  #pylint: disable=invalid-name

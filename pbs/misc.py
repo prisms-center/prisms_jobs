@@ -3,11 +3,8 @@
 import subprocess
 import os
 import StringIO
-# import re
 import datetime
-# import time
 import sys
-from distutils.spawn import find_executable
 
 class PBSError(Exception):
     """ A custom error class for pbs errors """
@@ -19,17 +16,6 @@ class PBSError(Exception):
     def __str__(self):
         return self.jobid + ": " + self.msg
 
-def getsoftware():
-    """Tries to find qsub, then sbatch. Returns "torque" if qsub
-    is found, else returns "slurm" if sbatch is found, else returns
-    "other" if neither is found. """
-    if find_executable("qsub") is not None:
-        return "torque"
-    elif find_executable("sbatch") is not None:
-        return "slurm"
-    else:
-        return "other"
-
 def getlogin():
     """Returns os.getlogin(), else os.environ["LOGNAME"], else "?" """
     try:
@@ -38,34 +24,6 @@ def getlogin():
         return os.environ["LOGNAME"]
     else:
         return "?"
-
-def getversion(software=None):
-    """Returns the software version """
-    if software is None:
-        software = getsoftware()
-    if software is "torque":
-        opt = ["qstat", "--version"]
-
-        # call 'qstat' using subprocess
-        p = subprocess.Popen(opt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #pylint: disable=invalid-name
-        stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-        sout = StringIO.StringIO(stdout)
-
-        # return the version number
-        return sout.read().rstrip("\n").lstrip("version: ")
-    elif software is "slurm":
-        opt = ["squeue", "--version"]
-
-        # call 'squeue' using subprocess
-        p = subprocess.Popen(opt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #pylint: disable=invalid-name
-        stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-        sout = StringIO.StringIO(stdout)
-
-        # return the version number
-        return sout.read().rstrip("\n").lstrip("slurm ")
-
-    else:
-        return "0"
 
 def seconds(walltime):
     """Convert [[[DD:]HH:]MM:]SS to hours"""
