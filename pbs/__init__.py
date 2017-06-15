@@ -11,7 +11,7 @@ and the 'CASM_PBS_SOFTWARE' environment variable is not set.
 
 def set_software(user_override=None):
     """
-    Import interface with job management software as pbs.software module
+    Import interface with job management software as module named ``pbs.software``
 
     Args:
         user_override (str, optional, default=None):
@@ -54,7 +54,7 @@ def set_software(user_override=None):
     else:
         #warnings.warn(_IMPORT_WARNING_MSG)
         import pbs.interface.default as software
-
+    
 set_software(user_override = os.environ.get('CASM_PBS_SOFTWARE', None))
 
 

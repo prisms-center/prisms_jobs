@@ -70,13 +70,6 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
             Only set to True if the command uses this pbs module to set 
             itself as completed when it is completed. Otherwise, you may submit 
             it extra times leading to wasted resources and overwritten data.
-        
-        software (str, optional, Default=None): 
-        
-            Job submission software to use. Ex: ``"torque"``
-            
-            Options are: ``"torque"`` or ``"slurm"``. If None, will attempt
-            to determine automatically by checking for ``qsub`` or ``sbatch``.
     
     Attributes:
         name (str): Job name. Ex: ``"myjob-0"``
@@ -93,32 +86,17 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         priority (str):  Priority ranges from (low) -1024 to (high) 1023. Ex: ``"-200"``
         command (str):   String with command to run by script. Ex: ``"echo \"hello\" > test.txt"``
         auto (bool):     Indicates an automatically re-submitting job.  Ex: ``True``
-        software (str): Job submission software to use. Ex: ``"torque"``
         
     """
 
 
     def __init__(self, name="STDIN", account=None, nodes=None, ppn=None, walltime=None, #pylint: disable=too-many-arguments, too-many-locals
                  pmem=None, qos=None, queue=None, exetime=None, message="a", email=None,
-                 priority="0", command=None, auto=False, substr=None, software=None):
+                 priority="0", command=None, auto=False, substr=None):
 
         if substr != None:
             self.read(substr)
             return
-
-        # Determines the software and loads the appropriate package
-        if software is None:
-            software = misc.getsoftware()
-        self.software = software
-
-        global misc_pbs
-
-        if self.software is "torque":
-            misc_pbs = __import__("pbs.misc_torque", globals(), locals(), [], -1).misc_torque
-        elif self.software is "slurm":
-            misc_pbs = __import__("pbs.misc_slurm", globals(), locals(), [], -1).misc_slurm
-        else:
-            misc_pbs = __import__("pbs.misc_torque", globals(), locals(), [], -1).misc_torque
 
         # Declares a name for the job. The name specified may be up to and including
         # 15 characters in length. It must consist of printable, non white space characters
@@ -192,71 +170,8 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
     #
 
     def sub_string(self):   #pylint: disable=too-many-branches
-        """ Output Job as a string suitable for self.software """
-        if self.software.lower() == "slurm":
-            ###Write this Job as a string suitable for slurm
-            ### NOT USED:
-            ###    exetime
-            ###    priority
-            ###    auto
-            jobstr = "#!/bin/sh\n"
-            jobstr += "#SBATCH -J {0}\n".format(self.name)
-            if self.account is not None:
-                jobstr += "#SBATCH -A {0}\n".format(self.account)
-            jobstr += "#SBATCH -t {0}\n".format(self.walltime)
-            jobstr += "#SBATCH -n {0}\n".format(self.nodes*self.ppn)
-            if self.pmem is not None:
-                jobstr += "#SBATCH --mem-per-cpu={0}\n".format(self.pmem)
-            if self.qos is not None:
-                jobstr += "#SBATCH --qos={0}\n".format(self.qos)
-            if self.email != None and self.message != None:
-                jobstr += "#SBATCH --mail-user={0}\n".format(self.email)
-                if 'b' in self.message:
-                    jobstr += "#SBATCH --mail-type=BEGIN\n"
-                if 'e' in self.message:
-                    jobstr += "#SBATCH --mail-type=END\n"
-                if 'a' in self.message:
-                    jobstr += "#SBATCH --mail-type=FAIL\n"
-            # SLURM does assignment to no. of nodes automatically
-            # jobstr += "#SBATCH -N {0}\n".format(self.nodes)
-            if self.queue is not None:
-                jobstr += "#SBATCH -p {0}\n".format(self.queue)
-            jobstr += "{0}\n".format(self.command)
-
-            return jobstr
-
-        else:
-            ###Write this Job as a string suitable for torque###
-
-            jobstr = "#!/bin/sh\n"
-            jobstr += "#PBS -S /bin/sh\n"
-            jobstr += "#PBS -N {0}\n".format(self.name)
-            if self.exetime is not None:
-                jobstr += "#PBS -a {0}\n".format(self.exetime)
-            if self.account is not None:
-                jobstr += "#PBS -A {0}\n".format(self.account)
-            jobstr += "#PBS -l walltime={0}\n".format(self.walltime)
-            jobstr += "#PBS -l nodes={0}:ppn={1}\n".format(self.nodes, self.ppn)
-            if self.pmem is not None:
-                jobstr += "#PBS -l pmem={0}\n".format(self.pmem)
-            if self.qos is not None:
-                jobstr += "#PBS -l qos={0}\n".format(self.qos)
-            if self.queue is not None:
-                jobstr += "#PBS -q {0}\n".format(self.queue)
-            if self.email != None and self.message != None:
-                jobstr += "#PBS -M {0}\n".format(self.email)
-                jobstr += "#PBS -m {0}\n".format(self.message)
-            jobstr += "#PBS -V\n"
-            jobstr += "#PBS -p {0}\n\n".format(self.priority)
-            jobstr += "#auto={0}\n\n".format(self.auto)
-            jobstr += "echo \"I ran on:\"\n"
-            jobstr += "cat $PBS_NODEFILE\n\n"
-            jobstr += "cd $PBS_O_WORKDIR\n"
-            jobstr += "{0}\n".format(self.command)
-
-            return jobstr
-
-
+        """ Output Job as a string suitable for pbs.software """
+        return pbs.software.sub_string(self)
 
     def script(self, filename="submit.sh"):
         """
@@ -271,7 +186,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
     def submit(self, add=True, dbpath=None):
         """
-        Submit this Job using the appropriate command for self.software.
+        Submit this Job using the appropriate command for pbs.software.
 
         Args:
            add (bool): Should this job be added to the JobDB database?
@@ -283,7 +198,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         """
 
         try:
-            self.jobID = misc_pbs.submit(substr=self.sub_string())
+            self.jobID = pbs.software.submit(substr=self.sub_string())
         except misc.PBSError as e:  #pylint: disable=invalid-name
             raise e
 

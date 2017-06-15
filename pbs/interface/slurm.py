@@ -104,6 +104,43 @@ def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pyli
 
 NAME = 'slurm'
 
+def sub_string(job):
+    """Write Job as a string suitable for slurm
+    
+    Args:
+        job (pbs.Job instance): Job to be submitted
+    """
+    ### NOT USED:
+    ###    exetime
+    ###    priority
+    ###    auto
+    jobstr = "#!/bin/sh\n"
+    jobstr += "#SBATCH -J {0}\n".format(job.name)
+    if job.account is not None:
+        jobstr += "#SBATCH -A {0}\n".format(job.account)
+    jobstr += "#SBATCH -t {0}\n".format(job.walltime)
+    jobstr += "#SBATCH -n {0}\n".format(job.nodes*job.ppn)
+    if job.pmem is not None:
+        jobstr += "#SBATCH --mem-per-cpu={0}\n".format(job.pmem)
+    if job.qos is not None:
+        jobstr += "#SBATCH --qos={0}\n".format(job.qos)
+    if job.email != None and job.message != None:
+        jobstr += "#SBATCH --mail-user={0}\n".format(job.email)
+        if 'b' in job.message:
+            jobstr += "#SBATCH --mail-type=BEGIN\n"
+        if 'e' in job.message:
+            jobstr += "#SBATCH --mail-type=END\n"
+        if 'a' in job.message:
+            jobstr += "#SBATCH --mail-type=FAIL\n"
+    # SLURM does assignment to no. of nodes automatically
+    # jobstr += "#SBATCH -N {0}\n".format(job.nodes)
+    if job.queue is not None:
+        jobstr += "#SBATCH -p {0}\n".format(job.queue)
+    jobstr += "{0}\n".format(job.command)
+
+    return jobstr
+
+
 def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
     """Get job IDs
     

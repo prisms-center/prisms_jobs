@@ -6,34 +6,34 @@
 NAME = 'default'
 
 def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
-    """Get job IDs"""
+    """Raise exception"""
     raise Exception("No job management software found")
 
 def job_rundir(jobid):
-    """Return the directory job was run in"""
+    """Raise exception"""
     raise Exception("No job management software found")
 
 def job_status(jobid=None):
-    """Return job status"""
+    """Raise exception"""
     raise Exception("No job management software found")
 
 def submit(substr):
-    """Submit a job"""
+    """Raise exception"""
     raise Exception("No job management software found")
 
 def delete(jobid):
-    """Delete a job"""
+    """Raise exception"""
     raise Exception("No job management software found")
 
 def hold(jobid):
-    """Hold a job"""
+    """Raise exception"""
     raise Exception("No job management software found")
 
 def release(jobid):
-    """Release a job"""
+    """Raise exception"""
     raise Exception("No job management software found")
 
 def alter(jobid, arg):
-    """Alter a job"""
+    """Raise exception"""
     raise Exception("No job management software found")
 

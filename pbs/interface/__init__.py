@@ -4,6 +4,7 @@ Each interface is expected to have the following variables/functions. See
 one of the included interfaces for specifics of arguments and return values.
 
 * NAME (str): Interface module name
+* sub_string(job): Write pbs.Job instance as a string suitable for submission
 * job_id(all=False, name=None): Get job ID(s)
 * job_rundir(): Get job run directories
 * job_status(jobid=None): Get job status

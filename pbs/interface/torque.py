@@ -96,6 +96,40 @@ def _qstat(jobid=None, username=getlogin(), full=False):
 
 NAME = 'torque'
 
+def sub_string(job):
+    """Write Job as a string suitable for torque
+    
+    Args:
+        job (pbs.Job instance): Job to be submitted
+    """
+    jobstr = "#!/bin/sh\n"
+    jobstr += "#PBS -S /bin/sh\n"
+    jobstr += "#PBS -N {0}\n".format(job.name)
+    if job.exetime is not None:
+        jobstr += "#PBS -a {0}\n".format(job.exetime)
+    if job.account is not None:
+        jobstr += "#PBS -A {0}\n".format(job.account)
+    jobstr += "#PBS -l walltime={0}\n".format(job.walltime)
+    jobstr += "#PBS -l nodes={0}:ppn={1}\n".format(job.nodes, job.ppn)
+    if job.pmem is not None:
+        jobstr += "#PBS -l pmem={0}\n".format(job.pmem)
+    if job.qos is not None:
+        jobstr += "#PBS -l qos={0}\n".format(job.qos)
+    if job.queue is not None:
+        jobstr += "#PBS -q {0}\n".format(job.queue)
+    if job.email != None and job.message != None:
+        jobstr += "#PBS -M {0}\n".format(job.email)
+        jobstr += "#PBS -m {0}\n".format(job.message)
+    jobstr += "#PBS -V\n"
+    jobstr += "#PBS -p {0}\n\n".format(job.priority)
+    jobstr += "#auto={0}\n\n".format(job.auto)
+    jobstr += "echo \"I ran on:\"\n"
+    jobstr += "cat $PBS_NODEFILE\n\n"
+    jobstr += "cd $PBS_O_WORKDIR\n"
+    jobstr += "{0}\n".format(job.command)
+
+    return jobstr
+
 def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
     """Get job IDs
     
