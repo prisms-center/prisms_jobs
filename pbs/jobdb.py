@@ -63,6 +63,7 @@ def set_update_selection_method(user_override=None):
             ===================    =======================================================
             'default' (or None)    Select jobs with jobstatus != 'C'
             'check_hostname'       Select jobs with jobstatus != 'C' and matching hostname
+            ===================    =======================================================
     
     Raises:
         pbs.JobDBError: For unexpected value.
