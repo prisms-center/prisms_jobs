@@ -12,6 +12,6 @@ if sys.argv[1] == "-h" or sys.argv[1] == "--help":
     print "usage: psub PBS_SCRIPT"
     sys.exit()
 
-qsubstr=open(sys.argv[1],"r").read()
-job = pbs.Job( qsubstr=qsubstr )
+substr=open(sys.argv[1],"r").read()
+job = pbs.Job(substr=substr)
 job.submit()
