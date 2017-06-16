@@ -80,7 +80,7 @@ If installing to a user directory, you may need to set your PATH to find the ins
 
 2. Checkout the branch/tag containing the version you wish to install. Latest is ``v3.0.0``:
 
-        git checkout v3.0.0
+        git checkout v2.0.0
 
 2. From the root directory of the repository:
 
