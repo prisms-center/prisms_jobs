@@ -24,7 +24,7 @@ def _getversion():
     sout = StringIO.StringIO(stdout)
 
     # return the version number
-    return float(sout.read().rstrip("\n").lstrip("version: ").split(".")[0])
+    return float(sout.read().rstrip("\n").lower().lstrip("version: ").split(".")[0])
 
 torque_version = _getversion()
 
@@ -195,7 +195,7 @@ def job_status(jobid=None):
 
     Returns:
     
-        job_status (dict of dict):
+        status (dict of dict):
         
             The outer dict uses jobid as key in outer dict.
    

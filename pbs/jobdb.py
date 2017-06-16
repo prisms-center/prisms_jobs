@@ -8,6 +8,7 @@ import socket
 import time
 import re
 import json
+import warnings
 
 import pbs
 import pbs.misc as misc
@@ -31,6 +32,50 @@ class EligibilityError(Exception):
 
     def __str__(self):
         return self.jobid + ": " + self.msg
+
+
+def _default_update_selection(curs):
+    """Select jobs with jobstatus!='C'"""
+    curs.execute("SELECT jobid FROM jobs WHERE jobstatus!='C'")
+
+def _check_hostname_update_selection(curs):
+    """Select jobs with jobstatus!='C' and matching hostname"""
+    hostname = socket.gethostname()
+    
+    # Parse our hostname so we can only select jobs from THIS host
+    #   Otherwise, if we're on a multiple-clusters-same-home setup,
+    #   we may incorrectly update jobs from one cluster onto the other
+    m = re.search(r"(.*?)(?=[^a-zA-Z0-9]*login.*)", hostname)   #pylint: disable=invalid-name
+    if m:
+        hostname_regex = m.group(1) + ".*"
+    else:
+        hostname_regex = hostname + ".*"
+
+    curs.execute("SELECT jobid FROM jobs WHERE jobstatus!='C' AND hostname REGEXP ?",
+                 (hostname_regex, ))
+
+def set_update_selection_method(user_override=None):
+    """Enable customization of which jobs are selected for JobDB.update()
+    
+    Args:
+        user_override (str, optional):
+        
+            ===================    =======================================================
+            'default' (or None)    Select jobs with jobstatus != 'C'
+            'check_hostname'       Select jobs with jobstatus != 'C' and matching hostname
+    
+    Raises:
+        pbs.JobDBError: For unexpected value.
+    """
+    global update_selection_method
+    if user_override is None or user_override.lower() == 'default':
+        update_selection_method = _default_update_selection
+    elif user_override.lower() == 'check_hostname':
+        update_selection_method = _check_hostname_update_selection
+    else:
+        raise JobDBError('Unrecognized CASM_PBS_JOB_UPDATE: ' + user_override)
+
+set_update_selection_method(user_override = os.environ.get('CASM_PBS_JOB_UPDATE', None))
 
 
 # columns in database (see job_status_dict()):
@@ -196,9 +241,6 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 
         self.conn = None
         self.curs = None
-
-        self.username = misc.getlogin()
-        self.hostname = socket.gethostname()
         self.connect(dbpath)
 
         # list of dict() from misc.job_status for jobs not tracked in database:
@@ -251,6 +293,15 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             self.conn.row_factory = sqlite3.Row
             self.conn.create_function("REGEXP", 2, regexp)
             self.curs = self.conn.cursor()
+            
+            # check columns
+            status_type = job_status_type_dict()
+            self.curs.execute("SELECT * from jobs")
+            cols = [desc[0] for desc in self.curs.description]
+            
+            for c in status_type:
+                if c not in cols:
+                    warnings.warn("Column '" + c + "' not in casm-pbs jobs table.")
 
 
     def close(self):
@@ -282,21 +333,8 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         """
 
         # update jobstatus
-
-        # Parse our hostname so we can only select jobs from THIS host
-        #   Otherwise, if we're on a multiple-clusters-same-home setup,
-        #   we may incorrectly update jobs from one cluster onto the other
-        m = m = re.search(r"(.*?)(?=[^a-zA-Z0-9]*login.*)", self.hostname)   #pylint: disable=invalid-name
-        if m:
-            hostname_regex = m.group(1) + ".*"
-        else:
-            hostname_regex = self.hostname + ".*"
-
-        # select jobs that are not yet marked complete
-        # self.curs.execute("SELECT jobid FROM jobs WHERE jobstatus!='C'")
-        # self.curs.execute("SELECT jobid FROM jobs WHERE hostname REGEXP ")
-        self.curs.execute("SELECT jobid FROM jobs WHERE jobstatus!='C' AND hostname REGEXP ?",
-                          (hostname_regex, ))
+        # * this method can be configured/customized via set_update_selection_method
+        update_selection_method(self.curs)
 
         # newstatus will contain the updated info
         newstatus = dict()
@@ -338,6 +376,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
                         jobstatus["jobstatus"], jobstatus["elapsedtime"],
                         jobstatus["starttime"], jobstatus["completiontime"],
                         jobstatus["qstatstr"], int(time.time()), key))
+        
         self.conn.commit()
 
         # update taskstatus for non-auto jobs
@@ -346,8 +385,6 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             WHERE jobstatus='C' AND taskstatus='Incomplete' AND auto=0",
             (int(time.time()),))
         self.conn.commit()
-
-
 
 
     def select_job(self, jobid):
@@ -621,7 +658,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         wd = os.getcwd()    #pylint: disable=invalid-name
         os.chdir(job["rundir"])
 
-        new_jobid = pbs.software.submit(qsubstr=job["qsubstr"])
+        new_jobid = pbs.software.submit(substr=job["qsubstr"])
 
         self.curs.execute("UPDATE jobs SET taskstatus='Continued', modifytime=?,\
                            continuation_jobid=? WHERE jobid=?",
@@ -851,13 +888,12 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 
 
 
-    def _print_header(self): #pylint: disable=no-self-use
+    def print_header(self): #pylint: disable=no-self-use
         """Print header rows for record summary"""
         print ("{0:<12} {1:<24} {2:^5} {3:^5} {4:>12} {5:^1} {6:>12} {7:<24} {8:^1} {9:<12}"
                .format("JobID", "JobName", "Nodes", "Procs", "Walltime", "S", "Runtime",
                        "Task", "A", "ContJobID"))
-        print ("{0:-^12} {1:-^24} {2:-^5} {3:-^5} {4:->12} {5:-^1} {6:->12}\
-                {7:-<24} {8:-^1} {9:-^12}"
+        print ("{0:-^12} {1:-^24} {2:-^5} {3:-^5} {4:->12} {5:-^1} {6:->12} {7:-<24} {8:-^1} {9:-^12}"
                .format("-", "-", "-", "-", "-", "-", "-", "-", "-", "-"))
 
 
@@ -974,9 +1010,9 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             full (bool): If True, print as key:val pair list, If (default) False,
                 print single row summary in 'qstat' style.
         """
-        print "\n\nUntracked:"
+        print "Untracked:"
         if not full:
-            self._print_header()
+            self.print_header()
         sort = sorted(self.untracked, key=lambda rec: rec["jobid"])
         for r in sort:  #pylint: disable=invalid-name
             tmp = dict(r)
@@ -998,10 +1034,10 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             series (bool): If True, print records as groups of auto submitting job
                 series. If (default) False, print in order found.
         """
-        print "\n\nTracked:"
+        print "Tracked:"
         self.curs.execute("SELECT * FROM jobs")
         if not full:
-            self._print_header()
+            self.print_header()
         self.print_selected(full=full, series=series)
 
 
@@ -1016,11 +1052,11 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             series (bool): If True, print records as groups of auto submitting job
                 series. If (default) False, print in order found.
         """
-        print "\n\nTracked:"
+        print "Tracked:"
         self.curs.execute("SELECT * FROM jobs WHERE taskstatus!='Complete'\
                            AND taskstatus!='Aborted' AND taskstatus!='Continued'")
         if not full:
-            self._print_header()
+            self.print_header()
         self.print_selected(full=full, series=series)
 
 # end class JobDB

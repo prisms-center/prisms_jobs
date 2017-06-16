@@ -7,6 +7,7 @@ import sys
 import StringIO
 
 ### Local ###
+import pbs
 import jobdb
 import misc
 
@@ -193,14 +194,11 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
            dbpath (str): Specify a non-default JobDB database
         
         Raises:
-            PBSError: If error submitting the job.
+            pbs.PBSError: If error submitting the job.
 
         """
 
-        try:
-            self.jobID = pbs.software.submit(substr=self.sub_string())
-        except misc.PBSError as e:  #pylint: disable=invalid-name
-            raise e
+        self.jobID = pbs.software.submit(substr=self.sub_string())
 
         if add:
             db = jobdb.JobDB(dbpath=dbpath) #pylint: disable=invalid-name

@@ -26,7 +26,7 @@ def set_software(user_override=None):
             * Anything else will be treated as the name of an existing python module
     
     Raises:
-        pbs.PBSError: If 'CASM_PBS_SOFTWARE' option is unrecognized 
+        pbs.JobDBError: If 'CASM_PBS_SOFTWARE' option is unrecognized 
         
     """
     global software
@@ -55,20 +55,21 @@ def set_software(user_override=None):
         #warnings.warn(_IMPORT_WARNING_MSG)
         import pbs.interface.default as software
     
-set_software(user_override = os.environ.get('CASM_PBS_SOFTWARE', None))
-
-
 # import into 'pbs'
 from job import Job
-from jobdb import JobDB, JobDBError, EligibilityError
+from jobdb import JobDB, JobDBError, EligibilityError, complete_job, error_job
 from misc import PBSError
+import templates
+
+set_software(user_override = os.environ.get('CASM_PBS_SOFTWARE', None))
 
 __version__ = '3.0.0'
 __all__ = [
     'Job',
     'JobDB',
     'JobDBError',
-    'TorqueInterface',
-    'SlurmInterface',
+    'EligibilityError', 
+    'complete_job',
+    'error_job'
     'PBSError',
     'set_software']
