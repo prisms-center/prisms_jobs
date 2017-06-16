@@ -36,7 +36,7 @@ JobID        JobName                  Nodes Procs     Walltime S      Runtime Ta
     
 Additionally, when scheduling periodic jobs is not allowed other ways, the 'taskmaster' script can fully automate this process. 'taskmaster' executes ```pstat --continue``` and then re-submits itself to execute again periodically.
 
-A script marked 'auto' should check itself for completion and when reached execute ```pstat --continue $PBS_JOBID``` in bash, or ```pbs.complete_job()``` in python. If an 'auto' job script does not set it's taskstatus to "Complete" it may continue to be re-submitted over and over.
+A script marked 'auto' should check itself for completion and when reached execute ```pstat --complete $PBS_JOBID``` in bash, or ```pbs.complete_job()``` in python. If an 'auto' job script does not set it's taskstatus to "Complete" it may continue to be re-submitted over and over.
 
 Jobs not marked 'auto' are shown with the status "Check" in 'pstat' until the user marks them as "Complete".
 
@@ -78,9 +78,9 @@ If installing to a user directory, you may need to set your PATH to find the ins
         git clone https://github.com/prisms-center/pbs.git
         cd pbs
 
-2. Checkout the branch/tag containing the version you wish to install. Latest is ``v2.0.1``:
+2. Checkout the branch/tag containing the version you wish to install. Latest is ``v3.0.0``:
 
-        git checkout v2.0.1
+        git checkout v3.0.0
 
 2. From the root directory of the repository:
 
@@ -100,6 +100,10 @@ If installing to a user directory, you may need to set your PATH to find the ins
 On flux, you can use my installation by including ```/scratch/prismsproject_flux/bpuchala/Public/pythonmodules``` in your PYTHONPATH, and ```/scratch/prismsproject_flux/bpuchala/Public/scripts``` in your PATH. It may be necessary to also run ```module load python/2.7.5```. This could be placed in your ```.bash_profile```.
 
 
+## Uninstall
+
+    pip uninstall casm-pbs
+
 
 ## Documentation
 
@@ -109,15 +113,35 @@ The python scripts 'pstat', 'psub', and 'taskmaster' have usage information that
 
 
 ## pbs
-The pbs Python module contains 4 submodules: 
+
+Environment variables:
+
+* **``CASM_PBS_SOFTWARE``**: By default, ``pbs`` will attempt to automatically detect ``'torque'`` (by checking for the 'qstat' executable) or ``'slurm'`` (by checking for the 'sbatch' executable). The ``'default'`` module provides stubs to enable testing/use on systems with no job management software. Any other value is treated as the name of a Python module containing a custom interface which ``pbs`` will attempt to import and use.
+
+* **``CASM_PBS_JOB_UPDATE``**: If unset or set to ``'default'``, the ``pstat`` script will attempt to update the status of all jobs that are not yet complete (``'C'``). For systems with multiple-clusters-same-home, this may be set to ``'check_hostname'`` and ``pstat`` will only attempt to update the status of jobs that are not yet complete (``'C'``) and have matching hostname, as determined by ``socket.gethostname()``.
+
+The primary contents of the ``pbs`` package include:
+
+* **Job** The Job class represents a job to be run, including job management software settings such as number of nodes, walltime, etc.
+
+* **JobDB** The JobDB class provides an interface to an SQLite database storing records of jobs submitted via the ``pbs``.
+
+* ** complete_job() ** Function that can be called inside the job script when it completes in order to mark the job as completed in the job database.
+
+* ** error_job() ** Function that can be called inside the job script when an error occurs to  record the error in the job database.
+
+
+The ``pbs`` Python package contains 2 main submodules: 
 
 * **pbs.misc**: Contains functions for interacting with qstat, qsub, and qdel. Also contains functions for common conversion and environment variables.
 
-* **pbs.jobdb**: Contains the JobDB class, which allows interactions with an SQLite database containing records of PBS jobs. 
+* **pbs.templates**: Specialized submodule for PRISMS on flux, but provides an example of how to create templates for particular types of Jobs. Contains templates for creating Job objects that areappropriate for PRISMS jobs, Non-PRISMS jobs, PRISMS debug queue jobs, and PRISMS special request jobs. May serve as an example for other systems.
 
-* **pbs.job**: Contains the Job class, which contains all the settings for a particular job (nodes requsted, walltime, command to run, etc.).
 
-* **pbs.templates**: Specialized submodule for PRISMS on flux, but provides an example of how to create templates for particular types of Jobs. Contains templates for creating Job objects that areappropriate for PRISMS jobs, Non-PRISMS jobs, PRISMS debug queue jobs, and PRISMS special request jobs.
+The ``pbs`` Python package contains 1 subpackage:
+
+* **pbs.interface**: Contains modules providing interfaces to the job management software. Currently includes ``'torque'`` and ``'slurm'``.
+
 
 
 ## pstat
@@ -248,7 +272,7 @@ The 'taskmaster' script periodically monitors and re-submits 'auto' jobs as nece
 
 ## License
 
-This directory contains the pbs Python module and related scripts developed 
+This directory contains the pbs Python package and related scripts developed 
 by the PRISMS Center at the University of Michigan, Ann Arbor, USA, and
 the Van der Ven group, originally at the University of Michigan and 
 currently at the University of California Santa Barbara.
