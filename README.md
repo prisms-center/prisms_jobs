@@ -1,4 +1,4 @@
-prisms_jobs
+prisms-jobs
 ===========
 
 A Python package and set of scripts used for submitting and managing 
@@ -10,7 +10,7 @@ currently at the University of California Santa Barbara.
 
 ## Overview
 
-When submitted through the ``prisms_pbs`` Python package or the included scripts, 
+When submitted through the ``prisms_jobs`` Python package or the included scripts, 
 cluster jobs are stored in a SQLite jobs database. This allows for convenient 
 monitoring and searching of submitted jobs. 
 
@@ -32,7 +32,7 @@ Possible values for "taskstatus" are:
 |"Aborted"   |The job and task have been aborted.                          |
 
 
-Jobs are marked 'auto' either by submitting through the python class ``pbs.Job`` 
+Jobs are marked 'auto' either by submitting through the python class ``prisms_jobs.Job`` 
 with the attribute ``auto=True``, or by submitting a PBS script which contains 
 the line ``#auto=True`` using the included ``psub`` script.  
 
@@ -65,7 +65,7 @@ Additionally, when scheduling periodic jobs is not allowed other ways, the
 ``pstat --continue`` and then resubmits itself to execute again periodically.
 
 A script marked 'auto' should check itself for completion and when reached execute 
-``pstat --complete $PBS_JOBID`` in bash, or ``pbs.complete_job()`` in Python. If 
+``pstat --complete $PBS_JOBID`` in bash, or ``prisms_jobs.complete_job()`` in Python. If 
 an 'auto' job script does not set its taskstatus to "Complete" it may continue 
 to be resubmitted indefinitely.    
 
@@ -77,11 +77,11 @@ marks them as "Complete".
 
 Using ``pip``:
 
-    pip install prisms_jobs
+    pip install prisms-jobs
 
 or, to install in your user directory:
    
-   	pip install --user prisms_jobs
+   	pip install --user prisms-jobs
    
 If installing to a user directory, you may need to set your PATH to find the installed scripts. This can be done using:
    
@@ -91,7 +91,7 @@ If installing to a user directory, you may need to set your PATH to find the ins
 ## Install using conda (todo)
 
     conda config --add channels prisms-center
-    conda install prisms_jobs
+    conda install prisms-jobs
 
 
 ## Installation from source
@@ -100,7 +100,7 @@ If installing to a user directory, you may need to set your PATH to find the ins
 
         cd /path/to/
         git clone https://github.com/prisms-center/prisms_jobs.git
-        cd pbs
+        cd prisms_jobs
 
 2. Checkout the branch/tag containing the version you wish to install. Latest is ``v3.0.0``:
 

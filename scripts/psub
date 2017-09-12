@@ -9,7 +9,7 @@ import argparse
 import prisms_jobs
 
 parser = argparse.ArgumentParser(description='Submit a script and add to prisms_jobs database')
-parser.add_argument('scriptname', type=str, nargs=1, help='Submit script')
+parser.add_argument('scriptname', type=str, help='Submit script')
 
 if __name__ == "__main__":
     args = parser.parse_args()

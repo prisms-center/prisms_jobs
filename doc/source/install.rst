@@ -9,13 +9,13 @@ Install using pip
 
 ::
 
-    pip install prisms_jobs
+    pip install prisms-jobs
 
 or, to install in your user directory:
 
 ::
 
-   	pip install --user casm-pbs
+   	pip install --user prisms-jobs
    
 If installing to a user directory, you may need to set your PATH to find the 
 installed scripts. This can be done using:
@@ -31,7 +31,7 @@ Install using conda
 ::
 
     conda config --add channels prisms-center
-    conda install prisms_jobs
+    conda install prisms-jobs
 
 
 Install from source
@@ -42,8 +42,8 @@ Install from source
 ::
 
     cd /path/to/
-    git clone https://github.com/prisms-center/pbs.git
-    cd pbs
+    git clone https://github.com/prisms-center/prisms_jobs.git
+    cd prisms_jobs
 
 2. Checkout the branch/tag containing the version you wish to install. Latest is ``v3.0.0``:
 

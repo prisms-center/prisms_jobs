@@ -13,7 +13,7 @@ Environment variables (typically not necessary):
 
 - ``PRISMS_JOBS_SOFTWARE``: 
 
-    By default, ``prisms_jobs`` will attempt to automatically 
+    By default, ``prisms-jobs`` will attempt to automatically 
     detect ``'torque'`` (by checking for the 'qstat' executable) or ``'slurm'`` (by 
     checking for the 'sbatch' executable). The ``'default'`` module provides stubs to 
     enable testing/use on systems with no job management software. If ``PRISMS_JOBS_SOFTWARE``

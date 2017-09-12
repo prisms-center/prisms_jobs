@@ -3,12 +3,12 @@
 Overview
 ========
 
-When submitted through the ``prisms_pbs`` Python package or the included scripts, 
+When submitted through the ``prisms_jobs`` Python package or the included scripts, 
 cluster jobs are stored in a SQLite jobs database. This allows for convenient 
 monitoring and searching of submitted jobs. 
 
 It is often necessary to submit multiple jobs until a particular task is complete,
-whether due to walltime or other limitations. ``prisms_jobs`` distinguishes and 
+whether due to walltime or other limitations. ``prisms-jobs`` distinguishes and 
 tracks both individual "jobstatus" ('R', 'Q', 'C', 'E', etc.) and "taskstatus".
 Jobs marked as 'auto' can be automatically or easily resubmitted until the 
 "taskstatus" is "Complete".
@@ -31,7 +31,7 @@ Possible values for "taskstatus" are:
 +------------+------------------------------------------------+
 
 
-Jobs are marked 'auto' either by submitting through the python class ``pbs.Job`` 
+Jobs are marked 'auto' either by submitting through the python class ``prisms_jobs.Job`` 
 with the attribute ``auto=True``, or by submitting a PBS script which contains 
 the line ``#auto=True`` using the included ``psub`` script.  
 
@@ -64,9 +64,9 @@ Additionally, when scheduling periodic jobs is not allowed other ways, the
 ``pstat --continue`` and then resubmits itself to execute again periodically.
 
 A script marked 'auto' should check itself for completion and when reached execute 
-``pstat --complete $PBS_JOBID`` in bash, or ``pbs.complete_job()`` in Python. If 
-an 'auto' job script does not set its taskstatus to "Complete" it may continue 
-to be resubmitted indefinitely.    
+``pstat --complete $PBS_JOBID --force`` in bash, or ``prisms_jobs.complete_job()`` 
+in Python. If an 'auto' job script does not set its taskstatus to "Complete" it 
+may continue to be resubmitted indefinitely.    
 
 Jobs not marked 'auto' are shown with the status "Check" in ``pstat`` until the user 
 marks them as "Complete".

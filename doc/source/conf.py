@@ -75,7 +75,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'prisms_jobs'
+project = u'prisms-jobs'
 copyright = u'2017, PRISMS Center and CASM Developers'
 author = u'PRISMS Center and CASM Developers'
 
