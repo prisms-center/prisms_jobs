@@ -18,7 +18,7 @@ Environment variables (typically not necessary):
     checking for the 'sbatch' executable). The ``'default'`` module provides stubs to 
     enable testing/use on systems with no job management software. If ``PRISMS_JOBS_SOFTWARE``
     is set to any other value, it is treated as the name of a Python module containing 
-    a custom interface which ``pbs`` will attempt to import and use.
+    a custom interface which ``prisms_jobs`` will attempt to import and use.
 
 - ``PRISMS_JOBS_UPDATE``: 
 
