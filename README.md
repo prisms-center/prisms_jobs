@@ -63,8 +63,7 @@ Additionally, when scheduling periodic jobs is not allowed other ways, the
 ``pstat --continue`` and then resubmits itself to execute again periodically.
 
 A script marked 'auto' should check itself for completion and when reached execute 
-``pstat --complete $PBS_JOBID`` in bash, or ``prisms_jobs.complete_job()`` in Python. If 
-an 'auto' job script does not set its taskstatus to "Complete" it may continue 
+``pstat --complete $PBS_JOBID --force`` in bash, or ``prisms_jobs.complete_job()`` in Python. If an 'auto' job script does not set its taskstatus to "Complete" it may continue 
 to be resubmitted indefinitely.    
 
 Jobs not marked 'auto' are shown with the status "Check" in ``pstat`` until the user 
