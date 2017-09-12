@@ -72,7 +72,7 @@ import templates
 
 set_software(user_override = os.environ.get('PRISMS_JOBS_SOFTWARE', None))
 
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 __all__ = [
     'Job',
     'JobDB',
