@@ -43,8 +43,6 @@ comprising a task.
 
 Example screen shot:
 
-::
-
     $ pstat
 
 
@@ -121,7 +119,7 @@ If installing to a user directory, you may need to set your PATH to find the ins
 
 ## Documentation
 
-See the [docs](todo).
+See the [docs (todo)](todo).
 
 
 ## License
