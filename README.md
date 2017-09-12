@@ -118,7 +118,7 @@ If installing to a user directory, you may need to set your PATH to find the ins
 
 ## Documentation
 
-See the [docs (todo)](todo).
+See the [docs](https://prisms-center.github.io/prisms_jobs_docs/).
 
 
 ## License
