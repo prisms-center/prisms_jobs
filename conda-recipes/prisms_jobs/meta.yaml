@@ -1,0 +1,21 @@
+package:
+  name: prisms-jobs
+  version: "3.0.1"
+
+source:
+  git_rev: v3.0.1
+  git_url: https://github.com/prisms-center/prisms_jobs.git
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - argparse # [py26]
+  run:
+    - python
+    - argparse # [py26]
+
+about:
+  home: https://prisms-center.github.io/prisms_jobs_docs/
+  license: LGPL2.1+
+  license_file: LICENSE
