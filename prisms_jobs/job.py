@@ -4,10 +4,9 @@
 import re
 import os
 import sys
-import StringIO
 
 ### Local ###
-import pbs
+import prisms_jobs
 import jobdb
 import misc
 
@@ -36,7 +35,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         exetime (str):  Time after which the job is eligible for execution. Ex: ``"1100"``
             
             Has the form: ``[[[[CC]YY]MM]DD]hhmm[.SS]``
-            Create using ``pbs.misc.exetime(deltatime)``, where deltatime 
+            Create using ``prisms_jobs.misc.exetime(deltatime)``, where deltatime 
             is a ``[[[DD:]MM:]HH:]SS`` string.
         
         message (str):  When to send email about the job. Ex: ``"abe"``
@@ -68,7 +67,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         
             Indicates an automatically re-submitting job.  Ex: ``True``
             
-            Only set to True if the command uses this pbs module to set 
+            Only set to True if the command uses this prisms_jobs module to set 
             itself as completed when it is completed. Otherwise, you may submit 
             it extra times leading to wasted resources and overwritten data.
     
@@ -130,7 +129,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         # PBS -a exetime
         # Declares the time after which the job is eligible for execution,
         # where exetime has the form: [[[[CC]YY]MM]DD]hhmm[.SS]
-        # create using pbs.misc.exetime( deltatime), where deltatime is a [[[DD:]MM:]HH:]SS string
+        # create using prisms_jobs.misc.exetime( deltatime), where deltatime is a [[[DD:]MM:]HH:]SS string
         self.exetime = exetime
 
         # when to send email about the job
@@ -171,8 +170,8 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
     #
 
     def sub_string(self):   #pylint: disable=too-many-branches
-        """ Output Job as a string suitable for pbs.software """
-        return pbs.software.sub_string(self)
+        """ Output Job as a string suitable for prisms_jobs.software """
+        return prisms_jobs.software.sub_string(self)
 
     def script(self, filename="submit.sh"):
         """
@@ -187,18 +186,18 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
     def submit(self, add=True, dbpath=None):
         """
-        Submit this Job using the appropriate command for pbs.software.
+        Submit this Job using the appropriate command for prisms_jobs.software.
 
         Args:
            add (bool): Should this job be added to the JobDB database?
            dbpath (str): Specify a non-default JobDB database
         
         Raises:
-            pbs.PBSError: If error submitting the job.
+            prisms_jobs.JobsError: If error submitting the job.
 
         """
 
-        self.jobID = pbs.software.submit(substr=self.sub_string())
+        self.jobID = prisms_jobs.software.submit(substr=self.sub_string())
 
         if add:
             db = jobdb.JobDB(dbpath=dbpath) #pylint: disable=invalid-name
@@ -213,164 +212,13 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
     def read(self, qsubstr):    #pylint: disable=too-many-branches, too-many-statements
         """
-        Set this Job object from string representing a PBS submit script.
+        Set this Job object from string representing a submit script appropriate
+        for the prisms_jobs.software.
 
-        * Will read many but not all valid PBS scripts.
-        * Will ignore any arguments not included in pbs.Job()'s attributes.
-        * Will add default optional arguments (i.e. ``-A``, ``-a``, ``-l pmem=(.*)``, 
-          ``-l qos=(.*)``, ``-M``, ``-m``, ``-p``, ``"Auto:"``) if not found.
-        * Will ``exit()`` if required arguments (``-N``, ``-l walltime=(.*)``, 
-          ``-l nodes=(.*):ppn=(.*)``, ``-q``, ``cd $PBS_O_WORKDIR``) not found.
-        * Will always include ``-V``
-        
         Args:
             qsubstr (str): A submit script as a string
 
         """
-        s = StringIO.StringIO(qsubstr)  #pylint: disable=invalid-name
-
-        self.pmem = None
-        self.email = None
-        self.message = "a"
-        self.priority = "0"
-        self.auto = False
-        self.account = None
-        self.exetime = None
-        self.qos = None
-
-        optional = dict()
-        optional["account"] = "Default: None"
-        optional["pmem"] = "Default: None"
-        optional["email"] = "Default: None"
-        optional["message"] = "Default: a"
-        optional["priority"] = "Default: 0"
-        optional["auto"] = "Default: False"
-        optional["exetime"] = "Default: None"
-        optional["qos"] = "Default: None"
-
-        required = dict()
-        required["name"] = "Not Found"
-        required["walltime"] = "Not Found"
-        required["nodes"] = "Not Found"
-        required["ppn"] = "Not Found"
-        required["queue"] = "Not Found"
-        required["cd $PBS_O_WORKDIR"] = "Not Found"
-        required["command"] = "Not Found"
-
-        while True:
-            line = s.readline()
-            #print line,
-
-            if re.search("#PBS", line):
-
-                m = re.search(r"-N\s+(.*)\s", line) #pylint: disable=invalid-name
-                if m:
-                    self.name = m.group(1)
-                    required["name"] = self.name
-
-                m = re.search(r"-A\s+(.*)\s", line)  #pylint: disable=invalid-name
-                if m:
-                    self.account = m.group(1)
-                    optional["account"] = self.account
-
-                m = re.search(r"-a\s+(.*)\s", line)  #pylint: disable=invalid-name
-                if m:
-                    self.exetime = m.group(1)
-                    optional["exetime"] = self.exetime
-
-                m = re.search(r"\s-l\s", line)   #pylint: disable=invalid-name
-                if m:
-                    m = re.search(r"walltime=([0-9:]+)", line)   #pylint: disable=invalid-name
-                    if m:
-                        self.walltime = m.group(1)
-                        required["walltime"] = self.walltime
-
-                    m = re.search(r"nodes=([0-9]+):ppn=([0-9]+)", line)   #pylint: disable=invalid-name
-                    if m:
-                        self.nodes = int(m.group(1))
-                        self.ppn = int(m.group(2))
-                        required["nodes"] = self.nodes
-                        required["ppn"] = self.ppn
-
-                    m = re.search(r"pmem=([^,\s]+)", line)    #pylint: disable=invalid-name
-                    if m:
-                        self.pmem = m.group(1)
-                        optional["pmem"] = self.pmem
-
-                    m = re.search(r"qos=([^,\s]+)", line) #pylint: disable=invalid-name
-                    if m:
-                        self.qos = m.group(1)
-                        optional["qos"] = self.qos
-                #
-
-                m = re.search(r"-q\s+(.*)\s", line)  #pylint: disable=invalid-name
-                if m:
-                    self.queue = m.group(1)
-                    required["queue"] = self.queue
-
-                m = re.match(r"-M\s+(.*)\s", line) #pylint: disable=invalid-name
-                if m:
-                    self.email = m.group(1)
-                    optional["email"] = self.email
-
-                m = re.match(r"-m\s+(.*)\s", line) #pylint: disable=invalid-name
-                if m:
-                    self.message = m.group(1)
-                    optional["message"] = self.message
-
-                m = re.match(r"-p\s+(.*)\s", line)   #pylint: disable=invalid-name
-                if m:
-                    self.priority = m.group(1)
-                    optional["priority"] = self.priority
-            #
-
-            m = re.search(r"auto=\s*(.*)\s", line)   #pylint: disable=invalid-name
-            if m:
-                if re.match("[fF](alse)*|0", m.group(1)):
-                    self.auto = False
-                    optional["auto"] = self.auto
-                elif re.match("[tT](rue)*|1", m.group(1)):
-                    self.auto = True
-                    optional["auto"] = self.auto
-                else:
-                    print "Error in pbs.Job().read(). '#auto=' argument not understood:", line
-                    sys.exit()
-
-            m = re.search(r"cd\s+\$PBS_O_WORKDIR\s+", line)  #pylint: disable=invalid-name
-            if m:
-                required["cd $PBS_O_WORKDIR"] = "Found"
-                self.command = s.read()
-                required["command"] = self.command
-                break
-        # end for
-
-        # check for required arguments
-        for k in required.keys():
-            if required[k] == "Not Found":
-
-                print "Error in pbs.Job.read(). Not all required arguments were found.\n"
-
-                # print what we found:
-                print "Optional arguments:"
-                for k, v in optional.iteritems():    #pylint: disable=invalid-name
-                    print k + ":", v
-                print "\nRequired arguments:"
-                for k, v in required.iteritems():    #pylint: disable=invalid-name
-                    if k == "command":
-                        print k + ":"
-                        print "--- Begin command ---"
-                        print v
-                        print "--- End command ---"
-                    else:
-                        print k + ":", v
-
-                sys.exit()
-        # end if
-    # end def
-
-
-
-
-
+        prisms_jobs.software.read(self, qsubstr)
 
 

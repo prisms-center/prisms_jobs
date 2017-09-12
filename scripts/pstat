@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-"""Print or modify PBS job and task status."""
+"""Print or modify PRISMS_JOBS job and task status."""
 
 ### External ###
 # import sys
 import argparse
 
 ### Local ###
-import pbs  #pylint: disable=import-error
+import prisms_jobs  #pylint: disable=import-error
 
 # input parser
 
 DESC = \
 """
-Print or modify PBS job and task status.
+Print or modify PRISMS_JOBS job and task status.
 
 
 By default, 'pstat' prints status for select jobs. Jobs are
@@ -28,14 +28,14 @@ confirmation is required before a modification is applied,
 unless the --force option is given.
 
 
-Job status is as given by PBS for a single PBS job ('C', 'R',
+Job status is as given by PRISMS_JOBS for a single job ('C', 'R',
 'Q', etc.).
 
 Task status is user-defined and defines the status of a single
-PBS job within a possible series of jobs comprising some task.
+job within a possible series of jobs comprising some task.
 'Auto' jobs may be re-submitted with the --continue option.
 Please see:
-             https://github.com/prisms-center/pbs
+             https://github.com/prisms-center/prisms_jobs
 for more information about 'auto' jobs.
 
 Possible values for task status are:
@@ -56,6 +56,54 @@ Possible values for task status are:
 
   "Aborted":     The job and task have been aborted.
 """
+
+def make_parser():
+    parser = argparse.ArgumentParser(description=DESC,
+                                     formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('job', metavar='JOBID', type=str, nargs='*',
+                        help='Job IDs to query or operate on')
+
+    style = parser.add_mutually_exclusive_group()
+    style.add_argument('-f', '--full', default=False, action='store_true',
+                       help='List all fields instead of summary')
+    style.add_argument('-s', '--series', default=False, action='store_true',
+                       help='List all fields grouped by continuation jobs')
+
+    group = parser.add_mutually_exclusive_group()
+    select = parser.add_mutually_exclusive_group()
+
+    select.add_argument('-a', '--all', default=False, action='store_true',
+                        help='Select all jobs in database')
+    select.add_argument('--range', metavar=('MINID', 'MAXID'), type=str, nargs=2,
+                        help='A range of Job IDs (inclusive) to query or operate on')
+    select.add_argument('--recent', metavar='DD:HH:MM:SS', type=str, nargs=1,
+                        help='Select jobs created or modified within given amout of time')
+    select.add_argument('--regex', metavar=('KEY', 'REGEX'), type=str, nargs=2,
+                        help='Select jobs where the value of column \'KEY\' matches\
+                              the regular expression \'REGEX\'.')
+
+    parser.add_argument('--active', default=False, action='store_true',
+                        help='Select active jobs only. May be combined with --range and --recent')
+
+    group.add_argument('--complete', default=False, action='store_true',
+                       help='Mark jobs as \'Complete\'')
+    group.add_argument('--continue', dest="cont", default=False, action='store_true',
+                       help='Re-submit auto jobs')
+    group.add_argument('--reset', default=False, action='store_true',
+                       help='Mark job as \'Incomplete\'')
+    group.add_argument('--abort', default=False, action='store_true',
+                       help='Call qdel on job and mark as \'Aborted\'')
+    group.add_argument('--error', metavar='ERRMSG', type=str, help='Add error message.')
+    group.add_argument('--delete', default=False, action='store_true',
+                       help='Delete jobs from database. Aborts jobs that are still running.')
+    group.add_argument('--key', type=str, nargs=1,
+                       help='Output data corresponding to \'key\' for selected jobs.')
+
+    parser.add_argument('--force', default=False, action='store_true',
+                        help='Modify jobs without user confirmation')
+    
+    return parser
+    
 
 def main(): #pylint: disable=missing-docstring, too-many-statements
 
@@ -125,7 +173,7 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
                     job.append(selected_job)
                 else:
                     print id + ":", msg
-            except pbs.JobDBError as e: #pylint: disable=invalid-name
+            except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
                 print e
 
 
@@ -175,7 +223,7 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
                         try:
                             job = db.select_job(s)
                             print s, job[args.key[0]]
-                        except pbs.JobDBError as e: #pylint: disable=invalid-name
+                        except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
                             print e
                     print ""
             else:
@@ -183,7 +231,7 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
                     try:
                         job = db.select_job(j)
                         print j, job[args.key[0]]
-                    except pbs.JobDBError as e: #pylint: disable=invalid-name
+                    except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
                         print e
 
 
@@ -219,59 +267,17 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
                 for j in jobid:
                     try:
                         db.print_job(jobid=j, full=args.full, series=args.series)
-                    except pbs.JobDBError as e: #pylint: disable=invalid-name
+                    except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
                         print e
 
-    parser = argparse.ArgumentParser(description=DESC,
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('job', metavar='JOBID', type=str, nargs='*',
-                        help='Job IDs to query or operate on')
-
-    style = parser.add_mutually_exclusive_group()
-    style.add_argument('-f', '--full', default=False, action='store_true',
-                       help='List all fields instead of summary')
-    style.add_argument('-s', '--series', default=False, action='store_true',
-                       help='List all fields grouped by continuation jobs')
-
-    group = parser.add_mutually_exclusive_group()
-    select = parser.add_mutually_exclusive_group()
-
-    select.add_argument('-a', '--all', default=False, action='store_true',
-                        help='Select all jobs in database')
-    select.add_argument('--range', metavar=('MINID', 'MAXID'), type=str, nargs=2,
-                        help='A range of Job IDs (inclusive) to query or operate on')
-    select.add_argument('--recent', metavar='DD:HH:MM:SS', type=str, nargs=1,
-                        help='Select jobs created or modified within given amout of time')
-    select.add_argument('--regex', metavar=('KEY', 'REGEX'), type=str, nargs=2,
-                        help='Select jobs where the value of column \'KEY\' matches\
-                              the regular expression \'REGEX\'.')
-
-    parser.add_argument('--active', default=False, action='store_true',
-                        help='Select active jobs only. May be combined with --range and --recent')
-
-    group.add_argument('--complete', default=False, action='store_true',
-                       help='Mark jobs as \'Complete\'')
-    group.add_argument('--continue', dest="cont", default=False, action='store_true',
-                       help='Re-submit auto jobs')
-    group.add_argument('--reset', default=False, action='store_true',
-                       help='Mark job as \'Incomplete\'')
-    group.add_argument('--abort', default=False, action='store_true',
-                       help='Call qdel on job and mark as \'Aborted\'')
-    group.add_argument('--error', metavar='ERRMSG', type=str, help='Add error message.')
-    group.add_argument('--delete', default=False, action='store_true',
-                       help='Delete jobs from database. Aborts jobs that are still running.')
-    group.add_argument('--key', type=str, nargs=1,
-                       help='Output data corresponding to \'key\' for selected jobs.')
-
-    parser.add_argument('--force', default=False, action='store_true',
-                        help='Modify jobs without user confirmation')
+    parser = make_parser()
 
     args = parser.parse_args()
 
 
 
 # open the Job database
-    db = pbs.JobDB()    #pylint: disable=invalid-name
+    db = prisms_jobs.JobDB()    #pylint: disable=invalid-name
     db.update()
 
 

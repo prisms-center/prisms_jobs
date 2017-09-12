@@ -1,4 +1,4 @@
-""" Misc functions for interfacing between torque and the pbs module """
+""" Misc functions for interfacing between torque and the prisms_jobs module """
 
 import subprocess
 import os
@@ -7,7 +7,8 @@ import re
 import datetime
 import time
 import sys
-from pbs.misc import getlogin, seconds, PBSError
+from prisms_jobs import JobsError
+from prisms_jobs.misc import getlogin, seconds
 from distutils.spawn import find_executable
 
 ### Internal ###
@@ -72,7 +73,7 @@ def _qstat(jobid=None, username=getlogin(), full=False):
         elif isinstance(jobid, list):
             pass
         else:
-            print "Error in pbs.interface.torque.qstat(). type(jobid):", type(jobid)
+            print "Error in prisms_jobs.interface.torque.qstat(). type(jobid):", type(jobid)
             sys.exit()
         opt += jobid
 
@@ -100,7 +101,7 @@ def sub_string(job):
     """Write Job as a string suitable for torque
     
     Args:
-        job (pbs.Job instance): Job to be submitted
+        job (prisms_jobs.Job instance): Job to be submitted
     """
     jobstr = "#!/bin/sh\n"
     jobstr += "#PBS -S /bin/sh\n"
@@ -140,9 +141,9 @@ def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
         name (str): If all==True, use name to filter results.
     
     Returns:
-        jobid (str, List(str), or None):
-            Returns a List(str) if all==True, a str if all==False and 
-            ``PBS_JOBID`` exists, else None.
+        One of str, List(str), or None:
+            Returns a str if all==False and ``PBS_JOBID`` exists, a List(str) 
+            if all==True, else None.
     
     """
     if all or name is not None:
@@ -170,7 +171,7 @@ def job_rundir(jobid):
             IDs of jobs to get the run directory
     
     Returns:
-        rundirs (dict):
+        dict:
             A dict, with id:rundir pairs.
     """
     rundir = dict()
@@ -195,25 +196,22 @@ def job_status(jobid=None):
 
     Returns:
     
-        status (dict of dict):
+        dict of dict:
         
-            The outer dict uses jobid as key in outer dict.
-   
-            Inner dict contains:
+            The outer dict uses jobid as key; the inner dict contains:
        
-            ===============    =====================================================
-            "name"             Job name
-            "nodes"            Number of nodes
-            "procs"            Number of processors
-            "walltime"         Walltime
-            "jobstatus"        status ("Q","C","R", etc.)
-            "qstatstr"         result of ``squeue -f jobid``, None if not found
-            "elapsedtime"      None if not started, else seconds as int
-            "starttime"        None if not started, else seconds since epoch as int
-            "completiontime"   None if not completed, else seconds since epoch as int
-
-    Note:
-        *This should be edited to return job_status_dict()'s*
+            ================    ======================================================
+            "name"              Job name
+            "nodes"             Number of nodes
+            "procs"             Number of processors
+            "walltime"          Walltime
+            "jobstatus"         status ("Q","C","R", etc.)
+            "qstatstr"          result of ``squeue -f jobid``, None if not found
+            "elapsedtime"       None if not started, else seconds as int
+            "starttime"         None if not started, else seconds since epoch as int
+            "completiontime"    None if not completed, else seconds since epoch as int
+            ================    ======================================================
+            
     """
     status = dict()
 
@@ -316,26 +314,26 @@ def submit(substr):
         substr (str): The submit script string
     
     Returns:
-        jobid (str): ID of submitted job
+        str: ID of submitted job
     
     Raises:
-        PBSError: If a submission error occurs
+        JobsError: If a submission error occurs
     """
 
     m = re.search(r"-N\s+(.*)\s", substr)       #pylint: disable=invalid-name
     if m:
         jobname = m.group(1)        #pylint: disable=unused-variable
     else:
-        raise PBSError(
+        raise JobsError(
             None,
-            r"Error in pbs.misc.submit(). Jobname (\"-N\s+(.*)\s\") not found in submit string.")
+            r"Error in prisms_jobs.misc.submit(). Jobname (\"-N\s+(.*)\s\") not found in submit string.")
 
     p = subprocess.Popen(   #pylint: disable=invalid-name
         "qsub", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate(input=substr)       #pylint: disable=unused-variable
     print stdout[:-1]
     if re.search("error", stdout):
-        raise PBSError(0, "PBS Submission error.\n" + stdout + "\n" + stderr)
+        raise JobsError(0, "prisms_jobs submission error.\n" + stdout + "\n" + stderr)
     else:
         jobid = stdout.split(".")[0]
         return jobid
@@ -347,7 +345,7 @@ def delete(jobid):
         jobid (str): ID of job to delete
     
     Returns:
-        code (int): ``qdel`` returncode
+        int: ``qdel`` returncode
     
     """
     p = subprocess.Popen(   #pylint: disable=invalid-name
@@ -362,7 +360,7 @@ def hold(jobid):
         jobid (str): ID of job to hold
     
     Returns:
-        code (int): ``qhold`` returncode
+        int: ``qhold`` returncode
     
     """
     p = subprocess.Popen(   #pylint: disable=invalid-name
@@ -377,7 +375,7 @@ def release(jobid):
         jobid (str): ID of job to release
     
     Returns:
-        code (int): ``qrls`` returncode
+        int: ``qrls`` returncode
     
     """
     p = subprocess.Popen(   #pylint: disable=invalid-name
@@ -393,10 +391,167 @@ def alter(jobid, arg):
         arg (str): 'arg' is a scontrol command option string. For instance, "-a 201403152300.19"
     
     Returns:
-        code (int): ``qalter`` returncode
+        int: ``qalter`` returncode
     """
     p = subprocess.Popen(   #pylint: disable=invalid-name
         ["qalter"] + arg.split() + [jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = p.communicate()    #pylint: disable=unused-variable
     return p.returncode
+
+def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statements
+    """
+    Set Job object from string representing a PBS submit script.
+
+    * Will read many but not all valid PBS scripts.
+    * Will ignore any arguments not included in prisms_jobs.Job()'s attributes.
+    * Will add default optional arguments (i.e. ``-A``, ``-a``, ``-l pmem=(.*)``, 
+      ``-l qos=(.*)``, ``-M``, ``-m``, ``-p``, ``"Auto:"``) if not found.
+    * Will ``exit()`` if required arguments (``-N``, ``-l walltime=(.*)``, 
+      ``-l nodes=(.*):ppn=(.*)``, ``-q``, ``cd $PBS_O_WORKDIR``) not found.
+    * Will always include ``-V``
+    
+    Args:
+        qsubstr (str): A submit script as a string
+
+    """
+    s = StringIO.StringIO(qsubstr)  #pylint: disable=invalid-name
+
+    job.pmem = None
+    job.email = None
+    job.message = "a"
+    job.priority = "0"
+    job.auto = False
+    job.account = None
+    job.exetime = None
+    job.qos = None
+
+    optional = dict()
+    optional["account"] = "Default: None"
+    optional["pmem"] = "Default: None"
+    optional["email"] = "Default: None"
+    optional["message"] = "Default: a"
+    optional["priority"] = "Default: 0"
+    optional["auto"] = "Default: False"
+    optional["exetime"] = "Default: None"
+    optional["qos"] = "Default: None"
+
+    required = dict()
+    required["name"] = "Not Found"
+    required["walltime"] = "Not Found"
+    required["nodes"] = "Not Found"
+    required["ppn"] = "Not Found"
+    required["queue"] = "Not Found"
+    required["cd $PBS_O_WORKDIR"] = "Not Found"
+    required["command"] = "Not Found"
+
+    while True:
+        line = s.readline()
+        #print line,
+
+        if re.search("#PBS", line):
+
+            m = re.search(r"-N\s+(.*)\s", line) #pylint: disable=invalid-name
+            if m:
+                job.name = m.group(1)
+                required["name"] = job.name
+
+            m = re.search(r"-A\s+(.*)\s", line)  #pylint: disable=invalid-name
+            if m:
+                job.account = m.group(1)
+                optional["account"] = job.account
+
+            m = re.search(r"-a\s+(.*)\s", line)  #pylint: disable=invalid-name
+            if m:
+                job.exetime = m.group(1)
+                optional["exetime"] = job.exetime
+
+            m = re.search(r"\s-l\s", line)   #pylint: disable=invalid-name
+            if m:
+                m = re.search(r"walltime=([0-9:]+)", line)   #pylint: disable=invalid-name
+                if m:
+                    job.walltime = m.group(1)
+                    required["walltime"] = job.walltime
+
+                m = re.search(r"nodes=([0-9]+):ppn=([0-9]+)", line)   #pylint: disable=invalid-name
+                if m:
+                    job.nodes = int(m.group(1))
+                    job.ppn = int(m.group(2))
+                    required["nodes"] = job.nodes
+                    required["ppn"] = job.ppn
+
+                m = re.search(r"pmem=([^,\s]+)", line)    #pylint: disable=invalid-name
+                if m:
+                    job.pmem = m.group(1)
+                    optional["pmem"] = job.pmem
+
+                m = re.search(r"qos=([^,\s]+)", line) #pylint: disable=invalid-name
+                if m:
+                    job.qos = m.group(1)
+                    optional["qos"] = job.qos
+            #
+
+            m = re.search(r"-q\s+(.*)\s", line)  #pylint: disable=invalid-name
+            if m:
+                job.queue = m.group(1)
+                required["queue"] = job.queue
+
+            m = re.match(r"-M\s+(.*)\s", line) #pylint: disable=invalid-name
+            if m:
+                job.email = m.group(1)
+                optional["email"] = job.email
+
+            m = re.match(r"-m\s+(.*)\s", line) #pylint: disable=invalid-name
+            if m:
+                job.message = m.group(1)
+                optional["message"] = job.message
+
+            m = re.match(r"-p\s+(.*)\s", line)   #pylint: disable=invalid-name
+            if m:
+                job.priority = m.group(1)
+                optional["priority"] = job.priority
+        #
+
+        m = re.search(r"auto=\s*(.*)\s", line)   #pylint: disable=invalid-name
+        if m:
+            if re.match("[fF](alse)*|0", m.group(1)):
+                job.auto = False
+                optional["auto"] = job.auto
+            elif re.match("[tT](rue)*|1", m.group(1)):
+                job.auto = True
+                optional["auto"] = job.auto
+            else:
+                print "Error in prisms_jobs.Job().read(). '#auto=' argument not understood:", line
+                sys.exit()
+
+        m = re.search(r"cd\s+\$PBS_O_WORKDIR\s+", line)  #pylint: disable=invalid-name
+        if m:
+            required["cd $PBS_O_WORKDIR"] = "Found"
+            job.command = s.read()
+            required["command"] = job.command
+            break
+    # end for
+
+    # check for required arguments
+    for k in required.keys():
+        if required[k] == "Not Found":
+
+            print "Error in prisms_jobs.Job.read(). Not all required arguments were found.\n"
+
+            # print what we found:
+            print "Optional arguments:"
+            for k, v in optional.iteritems():    #pylint: disable=invalid-name
+                print k + ":", v
+            print "\nRequired arguments:"
+            for k, v in required.iteritems():    #pylint: disable=invalid-name
+                if k == "command":
+                    print k + ":"
+                    print "--- Begin command ---"
+                    print v
+                    print "--- End command ---"
+                else:
+                    print k + ":", v
+
+            sys.exit()
+    # end if
+# end def
 

@@ -1,17 +1,19 @@
 #!/usr/bin/env python
 
 # This script submits a PBS script, as with 'qsub script.sh'
-# and adds the job to the pbs.JobDB job database
+# and adds the job to the prisms_jobs.JobDB job database
 
-import pbs, sys
+import sys
+import argparse
 
-if len(sys.argv) != 2:
-    print "usage: psub PBS_SCRIPT"
-    sys.exit()
-if sys.argv[1] == "-h" or sys.argv[1] == "--help":
-    print "usage: psub PBS_SCRIPT"
-    sys.exit()
+import prisms_jobs
 
-substr=open(sys.argv[1],"r").read()
-job = pbs.Job(substr=substr)
-job.submit()
+parser = argparse.ArgumentParser(description='Submit a script and add to prisms_jobs database')
+parser.add_argument('scriptname', type=str, nargs=1, help='Submit script')
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+
+    substr = open(args.scriptname, 'r').read()
+    job = prisms_jobs.Job(substr=substr)
+    job.submit()

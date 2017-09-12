@@ -6,16 +6,6 @@ import StringIO
 import datetime
 import sys
 
-class PBSError(Exception):
-    """ A custom error class for pbs errors """
-    def __init__(self, jobid, msg):
-        self.jobid = jobid
-        self.msg = msg
-        super(PBSError, self).__init__()
-
-    def __str__(self):
-        return self.jobid + ": " + self.msg
-
 def getlogin():
     """Returns os.getlogin(), else os.environ["LOGNAME"], else "?" """
     try:

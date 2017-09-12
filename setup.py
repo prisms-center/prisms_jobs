@@ -1,13 +1,13 @@
 from setuptools import setup
 import glob
-from pbs import __version__
-setup(name='casm-pbs', \
+from prisms_jobs import __version__
+setup(name='prisms_jobs', \
       version=__version__, \
-      description='Cluster job submission and management', \
-      author='CASM developers',
+      description='Job submission and management', \
+      author='PRISMS Center and CASM developers',
       author_email='casm-developers@lists.engr.ucsb.edu',
       url='https://github.com/prisms-center/pbs', \
-      packages=['pbs', 'pbs.interface'],
+      packages=['prisms_jobs', 'prisms_jobs.interface'],
       install_requires=['argparse'],
       scripts=glob.glob('scripts/*'),
       license='LGPL2.1+',

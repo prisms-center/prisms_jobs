@@ -1,18 +1,23 @@
 #!/usr/bin/env python
-import pbs, argparse, sys, subprocess
+import argparse
+import sys
+import subprocess
+
+import prisms_jobs
+
 
 def check_for_other():
-    jobid = pbs.software.job_id(name="taskmaster")
+    jobid = prisms_jobs.software.job_id(name="taskmaster")
     if not len(jobid):
         return
-    tmaster_status = pbs.software.job_status(jobid)
+    tmaster_status = prisms_jobs.software.job_status(jobid)
     for j in jobid:
-        if j != pbs.software.job_id() and tmaster_status[j]["jobstatus"] != "C":
+        if j != prisms_jobs.software.job_id() and tmaster_status[j]["jobstatus"] != "C":
             print "A taskmaster is already running. JobID:", j, "  Status:",  tmaster_status[j]["jobstatus"] 
             sys.exit()
     
 
-parser = argparse.ArgumentParser(description='Automatically resubmit PBS jobs')
+parser = argparse.ArgumentParser(description='Automatically resubmit jobs')
 parser.add_argument('-d','--delay', type=str, default="15:00", \
   help='How long to delay ("[[[DD:]HH:]MM:]SS") between executions.  Default is "15:00".')
 
@@ -21,38 +26,41 @@ group.add_argument('--hold', action='store_true', help='Place a hold on the curr
 group.add_argument('--release', action='store_true', help='Release the currently running taskmaster')
 group.add_argument('--kill', action='store_true', help='Kill the currently running taskmaster')
 
-args = parser.parse_args()
 
-if args.hold:
-    jobid = pbs.software.job_id(name="taskmaster")
-    if len(jobid) != 0:
-        pbs.software.hold(jobid[-1])
-elif args.release:
-    jobid = pbs.software.job_id(name="taskmaster")
-    if len(jobid) != 0:
-        pbs.software.release(jobid[-1])
-elif args.kill:
-    jobid = pbs.software.job_id(name="taskmaster")
-    if len(jobid) != 0:
-        pbs.software.alter(jobid[-1], "-a " + pbs.misc.exetime("10:00:00:00") )
-        pbs.software.delete(jobid[-1])
-else:
-    
-    # check if taskmaster already running (besides this one)
-    check_for_other()
-    
-    # continue jobs
-    db = pbs.JobDB()
-    db.update()
-    db.continue_all()
-    db.close()
-    
-    # submit taskmaster
-    print "submit taskmaster"
-    j = pbs.templates.PrismsDebugJob(nodes="1", ppn="1", name="taskmaster", \
-        exetime=pbs.misc.exetime(args.delay), auto=False, message=None, \
-        command="taskmaster " + ' '.join(sys.argv[1:]))
-    j.submit(add=False)
-    
-    #print "submit string:"
-    #print j.sub_string()
+if __name__ == "__main__":
+
+    args = parser.parse_args()
+
+    if args.hold:
+        jobid = prisms_jobs.software.job_id(name="taskmaster")
+        if len(jobid) != 0:
+            prisms_jobs.software.hold(jobid[-1])
+    elif args.release:
+        jobid = prisms_jobs.software.job_id(name="taskmaster")
+        if len(jobid) != 0:
+            prisms_jobs.software.release(jobid[-1])
+    elif args.kill:
+        jobid = prisms_jobs.software.job_id(name="taskmaster")
+        if len(jobid) != 0:
+            prisms_jobs.software.alter(jobid[-1], "-a " + prisms_jobs.misc.exetime("10:00:00:00") )
+            prisms_jobs.software.delete(jobid[-1])
+    else:
+        
+        # check if taskmaster already running (besides this one)
+        check_for_other()
+        
+        # continue jobs
+        db = prisms_jobs.JobDB()
+        db.update()
+        db.continue_all()
+        db.close()
+        
+        # submit taskmaster
+        print "submit taskmaster"
+        j = prisms_jobs.templates.PrismsDebugJob(nodes="1", ppn="1", name="taskmaster", \
+            exetime=prisms_jobs.misc.exetime(args.delay), auto=False, message=None, \
+            command="taskmaster " + ' '.join(sys.argv[1:]))
+        j.submit(add=False)
+        
+        #print "submit string:"
+        #print j.sub_string()

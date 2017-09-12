@@ -10,8 +10,8 @@ import re
 import json
 import warnings
 
-import pbs
-import pbs.misc as misc
+import prisms_jobs
+import prisms_jobs.misc as misc
 
 class JobDBError(Exception):
     """ Custom error class for JobDB"""
@@ -66,7 +66,7 @@ def set_update_selection_method(user_override=None):
             ===================    =======================================================
     
     Raises:
-        pbs.JobDBError: For unexpected value.
+        prisms_jobs.JobDBError: For unexpected value.
     """
     global update_selection_method
     if user_override is None or user_override.lower() == 'default':
@@ -74,9 +74,9 @@ def set_update_selection_method(user_override=None):
     elif user_override.lower() == 'check_hostname':
         update_selection_method = _check_hostname_update_selection
     else:
-        raise JobDBError('Unrecognized CASM_PBS_JOB_UPDATE: ' + user_override)
+        raise JobDBError('Unrecognized PRISMS_JOBS_UPDATE: ' + user_override)
 
-set_update_selection_method(user_override = os.environ.get('CASM_PBS_JOB_UPDATE', None))
+set_update_selection_method(user_override = os.environ.get('PRISMS_JOBS_UPDATE', None))
 
 
 # columns in database (see job_status_dict()):
@@ -222,20 +222,20 @@ def regexp(pattern, string):
     return re.match(pattern, string) is not None
 
 class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-public-methods
-    """A PBS Job Database object
+    """A primsms_jobs Job Database object
     
     Args:
         dbpath (str, optional): Path to JobDB sqlite database.
         
-            Usually this is called without arguments (pbs.JobDB()) to open or create a
+            Usually this is called without arguments (prisms_jobs.JobDB()) to open or create a
             database in the default location.
 
             If dbpath is not given:
-            * If the ``CASM_PBS_JOB_DB`` environment variable exists, set dbpath to
-              ``$CASM_PBS_JOB_DB/jobs.db``
-            * Else, set dbpath to "$HOME/.pbs/jobs.db", where $HOME is the user's
+            * If the ``PRISMS_JOBS_DB`` environment variable exists, set dbpath to
+              ``$PRISMS_JOBS_DB/jobs.db``
+            * Else, set dbpath to "$HOME/.prisms_jobs/jobs.db", where $HOME is the user's
               home directory
-    
+
     """
 
     def __init__(self, dbpath=None):
@@ -256,28 +256,28 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             dbpath (str): path to a JobDB database file.
 
             If dbpath is not given:
-            * If PBS_JOB_DB environment variable exists, set dbpath to "$PBS_JOB_DB/jobs.db" file.
-            * Else, set dbpath to "$HOME/.pbs/jobs.db", where $HOME is the user's home directory
+            * If PRISMS_JOBS_DB environment variable exists, set dbpath to "$PRISMS_JOBS_DB/jobs.db" file.
+            * Else, set dbpath to "$HOME/.prisms_jobs/jobs.db", where $HOME is the user's home directory
 
         """
 
         if dbpath is None:
-            if "PBS_JOB_DB" in os.environ:
-                dbpath = os.environ("PBS_JOB_DB")
+            if "PRISMS_JOBS_DB" in os.environ:
+                dbpath = os.environ("PRISMS_JOBS_DB")
                 if not os.path.isdir(dbpath):
-                    print "Error in pbs.jobdb.JobDB.connect()."
-                    print "  PBS_JOB_DB:", dbpath
+                    print "Error in prisms_jobs.jobdb.JobDB.connect()."
+                    print "  PRISMS_JOBS_DB:", dbpath
                     print "  Does not exist"
                     sys.exit()
             else:
-                dbpath = os.path.join(os.environ["HOME"], ".pbs")
+                dbpath = os.path.join(os.environ["HOME"], ".prisms_jobs")
                 if not os.path.isdir(dbpath):
                     print "Creating directory:", dbpath
                     os.mkdir(dbpath)
             dbpath = os.path.join(dbpath, "jobs.db")
         else:
             if not os.path.isfile(dbpath):
-                print ("Error in pbs.jobdb.JobDB.connect(). argument dbpath =",
+                print ("Error in prisms_jobs.jobdb.JobDB.connect(). argument dbpath =",
                        dbpath, "is not a file.")
                 sys.exit()
 
@@ -302,7 +302,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             
             for c in status_type:
                 if c not in cols:
-                    warnings.warn("Column '" + c + "' not in casm-pbs jobs table.")
+                    warnings.warn("Column '" + c + "' not in prisms_jobs jobs table.")
 
 
     def close(self):
@@ -317,7 +317,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         Args:
             job_status (dict):
                 Accepts a dictionary of data comprising the record. 
-                Create ``job_status`` using pbs.jobdb.job_status_dict().
+                Create ``job_status`` using prisms_jobs.jobdb.job_status_dict().
 
         """
         (colstr, questionstr, valtuple) = sql_insert_str(job_status)
@@ -345,7 +345,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             newstatus[f["jobid"]] = "C"
 
         # get job_status dict for all jobs found with qstat
-        active_status = pbs.software.job_status()
+        active_status = prisms_jobs.software.job_status()
 
         # reset untracked
         self.untracked = []
@@ -391,16 +391,16 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def select_job(self, jobid):
         """Return record (sqlite3.Row object) for one job with given jobid."""
         if not isinstance(jobid, str) and not isinstance(jobid, unicode):
-            print "Error in pbs.JobDB.select_job(). type(id):", type(jobid), "expected str."
+            print "Error in prisms_jobs.JobDB.select_job(). type(id):", type(jobid), "expected str."
             sys.exit()
 
         self.curs.execute("SELECT * FROM jobs WHERE jobid=?", (jobid,))
         r = self.curs.fetchall()    #pylint: disable=invalid-name
         if len(r) == 0:
-            raise JobDBError("Error in pbs.JobDB.select_job(). jobid: '"
+            raise JobDBError("Error in prisms_jobs.JobDB.select_job(). jobid: '"
                              + jobid + "' not found in jobs database.")
         elif len(r) > 1:
-            raise JobDBError("Error in pbs.JobDB.select_job(). "
+            raise JobDBError("Error in prisms_jobs.JobDB.select_job(). "
                              + str(len(r)) + " records with jobid: '"
                              + jobid + "' found.")
         return r[0]
@@ -427,7 +427,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
            The parent is the job with continuation_jobid = given jobid
         """
         if not isinstance(jobid, str) and not isinstance(jobid, unicode):
-            print "Error in pbs.JobDB.select_parent(). type(id):", type(jobid), "expected str."
+            print "Error in prisms_jobs.JobDB.select_parent(). type(id):", type(jobid), "expected str."
             sys.exit()
 
         self.curs.execute("SELECT * FROM jobs WHERE continuation_jobid=?", (jobid,))
@@ -435,7 +435,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         if len(r) == 0:
             return None
         elif len(r) > 1:
-            print ("Error in pbs.JobDB.select_parent().",
+            print ("Error in prisms_jobs.JobDB.select_parent().",
                    len(r),
                    " records with continuation_jobid:",
                    jobid, " found.")
@@ -456,12 +456,12 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         self.curs.execute("SELECT * FROM jobs WHERE jobid=?", (r["continuation_jobid"],))
         r = self.curs.fetchall()    #pylint: disable=invalid-name
         if len(r) == 0:
-            print ("Error in pbs.JobDB.select_child(). jobid:",
+            print ("Error in prisms_jobs.JobDB.select_child(). jobid:",
                    jobid, " child:", r["continuation_jobid"],
                    "not found.")
             sys.exit()
         elif len(r) > 1:
-            print ("Error in pbs.JobDB.select_child().",
+            print ("Error in prisms_jobs.JobDB.select_child().",
                    len(r), " records with child jobid:",
                    r["continuation_jobid"], " found.")
             sys.exit()
@@ -659,7 +659,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         wd = os.getcwd()    #pylint: disable=invalid-name
         os.chdir(job["rundir"])
 
-        new_jobid = pbs.software.submit(substr=job["qsubstr"])
+        new_jobid = prisms_jobs.software.submit(substr=job["qsubstr"])
 
         self.curs.execute("UPDATE jobs SET taskstatus='Continued', modifytime=?,\
                            continuation_jobid=? WHERE jobid=?",
@@ -723,7 +723,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         if not eligible:
             raise EligibilityError(id, msg)
 
-        pbs.software.delete(job["jobid"])
+        prisms_jobs.software.delete(job["jobid"])
         self.curs.execute("UPDATE jobs SET taskstatus='Aborted', modifytime=?\
                            WHERE jobid=?", (int(time.time()), job["jobid"]))
         self.conn.commit()
@@ -761,7 +761,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             jobseries = [job["jobid"]]
 
         for j in jobseries:
-            pbs.software.delete(j)
+            prisms_jobs.software.delete(j)
             self.curs.execute("DELETE from jobs WHERE jobid=?", (j, ))
         self.conn.commit()
 
@@ -831,7 +831,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             job: (sqlite3.Row) If this is given, jobid is not necessary and is ignored if given
 
         Raises:
-            pbs.EligibilityError: If not job not eligible to be marked 'Complete'
+            prisms_jobs.EligibilityError: If not job not eligible to be marked 'Complete'
         """
         if job is None:
             job = self.select_job(jobid)
@@ -872,7 +872,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             job (sqlite3.Row object): Job record from database
         
         Raises:
-            pbs.EligibilityError: If not job not eligible to be marked 'Complete'
+            prisms_jobs.EligibilityError: If not job not eligible to be marked 'Complete'
         """
 
         if job is None:
@@ -1076,14 +1076,14 @@ def complete_job(jobid=None, dbpath=None,):
             If not given, uses current job ID determined from the environment.
     
     Raises:
-        PBSError: If job ID could not be determined
+        JobsError: If job ID could not be determined
     """
     db = JobDB(dbpath)  #pylint: disable=invalid-name
 
     if jobid is None:
-        jobid = pbs.software.job_id()
+        jobid = prisms_jobs.software.job_id()
         if jobid is None:
-            raise pbs.PBSError(0, "Could not determine jobid")
+            raise prisms_jobs.JobsError(0, "Could not determine jobid")
 
     job = db.select_job(jobid)  #pylint: disable=unused-variable
     db.complete_job(jobid)
@@ -1105,13 +1105,13 @@ def error_job(message, jobid=None, dbpath=None):
             If not given, uses current job ID determined from the environment.
     
     Raises:
-        PBSError: If job ID could not be determined
+        JobsError: If job ID could not be determined
     """
     db = JobDB(dbpath)  #pylint: disable=invalid-name
     if jobid is None:
-        jobid = pbs.software.job_id()
+        jobid = prisms_jobs.software.job_id()
         if jobid is None:
-            raise pbs.PBSError(0, "Could not determine jobid")
+            raise prisms_jobs.JobsError(0, "Could not determine jobid")
 
     job = db.select_job(jobid)
     db.error_job(message, job=job)

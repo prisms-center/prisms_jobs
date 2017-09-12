@@ -37,3 +37,7 @@ def alter(jobid, arg):
     """Raise exception"""
     raise Exception("No job management software found")
 
+def read(job, qsubstr):
+    """Raise exception"""
+    raise Exception("No job management software found")
+
