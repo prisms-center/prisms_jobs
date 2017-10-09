@@ -14,9 +14,9 @@ from distutils.spawn import find_executable
 ### Internal ###
 
 def _getversion():
-    """Returns the torque version or 0. if no ``qstat`` """
+    """Returns the torque version as string or None if no ``qstat`` """
     if find_executable("qstat") is None:
-        return 0.
+        return None
     opt = ["qstat", "--version"]
 
     # call 'qstat' using subprocess
@@ -25,7 +25,7 @@ def _getversion():
     sout = StringIO.StringIO(stdout)
 
     # return the version number
-    return float(sout.read().rstrip("\n").lower().lstrip("version: ").split(".")[0])
+    return sout.read().rstrip("\n").lower().lstrip("version: ")
 
 torque_version = _getversion()
 
@@ -41,7 +41,7 @@ def _qstat(jobid=None, username=getlogin(), full=False):
     """
 
     # -u and -f contradict in earlier versions of Torque
-    if full and username is not None and (torque_version < 5.0 and jobid is None):
+    if full and username is not None and int(torque_version.split(".")[0]) < 5 and jobid is None):
         # First get all jobs by the user
         qopt = ["qselect"]
         qopt += ["-u", username]
