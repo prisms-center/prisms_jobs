@@ -8,7 +8,7 @@ setup(name='prisms_jobs', \
       author_email='casm-developers@lists.engr.ucsb.edu',
       url='https://prisms-center.github.io/prisms_jobs_docs/', \
       packages=['prisms_jobs', 'prisms_jobs.interface'],
-      install_requires=['argparse;python_version<"2.7"'],
+      install_requires=['argparse','python_version<=2.7'],
       scripts=glob.glob('scripts/*'),
       license='LGPL2.1+',
       classifiers=[
@@ -18,4 +18,5 @@ setup(name='prisms_jobs', \
         'Programming Language :: Python :: 2.7',
         'Topic :: Scientific/Engineering',
         'Topic :: System :: Distributed Computing'
-      ])
+      ],
+      data_files = [('', ['LICENSE'])])
