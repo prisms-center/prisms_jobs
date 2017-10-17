@@ -1,19 +1,21 @@
 """ Functions for interfacing between slurm and the prisms_jobs module """
 
 #pylint: disable=line-too-long, too-many-locals, too-many-branches
+from __future__ import (absolute_import, division, print_function, unicode_literals)
+from builtins import *
 
 ### External ###
-import subprocess
-import os
-import StringIO
-import re
 import datetime
+import os
+import re
+import subprocess
 import time
-# import sys
+
+from io import StringIO
 
 ### Internal ###
 from prisms_jobs import JobsError
-from prisms_jobs.misc import getlogin, seconds
+from prisms_jobs.misc import getlogin, run, seconds
 
 def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pylint: disable=unused-argument
     """Return the stdout of squeue minus the header lines.
@@ -23,7 +25,8 @@ def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pyli
        'jobid' is a string or list of strings of job ids
        'sformat' is a squeue format string (e.g., "%A %i %j %c")
 
-       Returns the text of squeue, minus the header lines
+    Returns:
+        str: the text of squeue, minus the header lines
     """
 
     # If Full is true, we need to use scontrol:
@@ -34,27 +37,19 @@ def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pyli
                 sopt = ["scontrol", "show", "job"]
 
                 # Submit the command
-                p = subprocess.Popen(sopt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)     #pylint: disable=invalid-name
-                stdout, stderr = p.communicate()        #pylint: disable=unused-variable
-
-                sout = StringIO.StringIO(stdout)
-
                 # Nothing to strip, as scontrol provides no headers
-                return sout.read()
+                return run(sopt)[0]
 
             else:
                 # First, get jobids that belong to that username using
                 # squeue (-h strips the header)
                 sopt = ["squeue", "-h", "-u", username]
 
-                q = subprocess.Popen(sopt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)     #pylint: disable=invalid-name
-                stdout, stderr = q.communicate()    #pylint: disable=unused-variable
-
-                qsout = StringIO.StringIO(stdout)
+                qsout = run(sopt)[0]
 
                 # Get the jobids
                 jobid = []
-                for line in qsout:
+                for line in StringIO(qsout):
                     jobid += [line.rstrip("\n")]
                 # Great, now we have some jobids to pass along
 
@@ -66,11 +61,7 @@ def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pyli
             sreturn = ""
             for my_id in jobid:
                 sopt = opt + [str(my_id)]
-
-                q = subprocess.Popen(sopt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)     #pylint: disable=invalid-name
-                stdout, stderr = q.communicate()    #pylint: disable=unused-variable
-
-                sreturn = sreturn + stdout + "\n"
+                sreturn = sreturn + run(sopt)[0] + "\n"
 
             return sreturn
 
@@ -92,13 +83,7 @@ def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pyli
             else:
                 sopt += ["-o", "'%i %j %u %M %t %P'"]
 
-        q = subprocess.Popen(sopt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)     #pylint: disable=invalid-name
-        stdout, stderr = q.communicate()    #pylint: disable=unused-variable
-
-        sout = StringIO.StringIO(stdout)
-
-        # return the remaining text
-        return sout.read()
+        return run(sopt)[0]
 
 
 ### Required ###
@@ -158,9 +143,8 @@ def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
     """
     if all or name is not None:
         jobid = []
-        stdout = _squeue()
-        sout = StringIO.StringIO(stdout)
-        for line in sout:
+        sout = _squeue()
+        for line in StringIO(sout):
             if name is not None:
                 if line.split()[3] == name:
                     jobid.append((line.split()[0]).split(".")[0])
@@ -225,14 +209,22 @@ def job_status(jobid=None):
     """
     status = dict()
 
-    stdout = _squeue(jobid=jobid, full=True)
-    sout = StringIO.StringIO(stdout)
+    sout = _squeue(jobid=jobid, full=True)
 
-### TODO: figure out why jobstatus is being initialized as a None vs as a dict() and then checked for content ### pylint: disable=fixme
-    # jobstatus = None
-    jobstatus = {"jobid" : None, "name" : None, "nodes" : None, "procs" : None, "walltime" : None, "qstatstr" : None, "elapsedtime" : None, "starttime" : None, "completiontime" : None, "jobstatus" : None, "cluster": None}
+    jobstatus = {
+        "jobid" : None,
+        "name" : None,
+        "nodes" : None,
+        "procs" : None,
+        "walltime" : None,
+        "qstatstr" : None,
+        "elapsedtime" : None,
+        "starttime" : None,
+        "completiontime" : None,
+        "jobstatus" : None,
+        "cluster": None}
 
-    for line in sout:
+    for line in StringIO(sout):
         # Check for if we're at a new job header line
         m = re.search(r"JobId=\s*(\S*)\s*", line)      #pylint: disable=invalid-name
         if m:
@@ -322,11 +314,15 @@ def job_status(jobid=None):
 
     return status
 
-def submit(substr):
+def submit(substr, write_submit_script=None):
     """Submit a job using ``sbatch``.
 
     Args:
         substr (str): The submit script string
+        write_submit_script (bool, optional): If true, submit via file skipping  
+            lines containing '#SBATCH -J'; otherwise, submit via commandline. If
+            not specified, uses ``prisms_jobs.config['write_submit_script']``.
+            
     
     Returns:
         str: ID of submitted job
@@ -335,20 +331,35 @@ def submit(substr):
         JobsError: If a submission error occurs
     """
 
-    m = re.search(r"-J\s+(.*)\s", substr)       #pylint: disable=invalid-name
+    m = re.search(r"#SBATCH\s+-J\s+(.*)\s", substr)       #pylint: disable=invalid-name
     if m:
         jobname = m.group(1)        #pylint: disable=unused-variable
     else:
         raise JobsError(
             None,
-            r"Error in prisms_jobs.misc.submit(). Jobname (\"-N\s+(.*)\s\") not found in submit string.")
-
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        "sbatch", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate(input=substr)       #pylint: disable=unused-variable
-    print stdout[:-1]
+            r"""Error in pbs.misc.submit(). Jobname ("#SBATCH\s+-J\s+(.*)\s") not found in submit string.""")
+    
+    if write_submit_script is None:
+        write_submit_script = prisms_jobs.config['write_submit_script']
+    
+    if write_submit_script:
+        if os.path.exists(jobname):
+            index = 0
+            while os.path.exists(jobname + ".bak." + str(index)):
+                index += 1
+            print("Backing up existing submit script:", jobname, "->", jobname + ".bak." + str(index))
+            os.rename(jobname, jobname + ".bak." + str(index))
+        # write submit script, without -N line
+        with open(jobname, 'w') as f:
+            for line in substr.splitlines():
+                if not re.search(r"SBATCH\s+-J\s+(.*)", line):
+                    f.write(line + '\n')
+        stdout, stderr, returncode = run(["sbatch", jobname])  #pylint: disable=unused-variable
+    else:
+        stdout, stderr, returncode = run(["sbatch"], input=substr, stdin=subprocess.PIPE)  #pylint: disable=unused-variable
+    print(stdout[:-1])
     if re.search("error", stdout):
-        raise JobsError(0, "prisms_jobs submission error.\n" + stdout + "\n" + stderr)
+        raise JobsError(0, "Submission error.\n" + stdout + "\n" + stderr)
     else:
         jobid = stdout.rstrip().split()[-1]
         return jobid
@@ -363,10 +374,7 @@ def delete(jobid):
         int: ``scancel`` returncode
     
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["scancel", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()        #pylint: disable=unused-variable
-    return p.returncode
+    return run(["scancel", jobid])[2]
 
 def hold(jobid):
     """``scontrol`` delay a job.
@@ -378,10 +386,7 @@ def hold(jobid):
         int: ``scontrol`` returncode
     
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["scontrol", "update", "JobId=", jobid, "StartTime=", "now+30days"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-    return p.returncode
+    return run(["scontrol", "update", "JobId=", jobid, "StartTime=", "now+30days"])[2]
 
 def release(jobid):
     """``scontrol`` un-delay a job.
@@ -393,10 +398,7 @@ def release(jobid):
         int: ``scontrol`` returncode
     
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["scontrol", "update", "JobId=", jobid, "StartTime=", "now"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-    return p.returncode
+    return run(["scontrol", "update", "JobId=", jobid, "StartTime=", "now"])[2]
 
 def alter(jobid, arg):
     """``scontrol`` update job.
@@ -408,10 +410,7 @@ def alter(jobid, arg):
     Returns:
         int: ``scontrol`` returncode
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["scontrol", "update", "JobId=", jobid] + arg.split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-    return p.returncode
+    return run(["scontrol", "update", "JobId=", jobid] + arg.split())[2]
 
 def read(job, qsubstr):
     """Raise exception"""

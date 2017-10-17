@@ -32,8 +32,8 @@ Possible values for "taskstatus" are:
 
 
 Jobs are marked 'auto' either by submitting through the python class ``prisms_jobs.Job`` 
-with the attribute ``auto=True``, or by submitting a PBS script which contains 
-the line ``#auto=True`` using the included ``psub`` script.  
+with the attribute ``auto=True``, or by submitting a script which contains 
+the line ``#auto=True`` using the included ``psub`` command line program.  
 
 Jobs can be monitored using the command line program ``pstat``. All 'auto' jobs 
 which have stopped can be resubmitted using ``pstat --continue``. In this case, 
@@ -61,7 +61,9 @@ Example screen shot:
 
 Additionally, when scheduling periodic jobs is not allowed other ways, the 
 ``taskmaster`` script can fully automate this process. ``taskmaster`` executes 
-``pstat --continue`` and then resubmits itself to execute again periodically.
+``pstat --continue`` and then resubmits itself to execute again periodically. As 
+not all compute resources allow this behavior, remember check the policy prior 
+to using ``taskmaster`` on a new compute resource.
 
 A script marked 'auto' should check itself for completion and when reached execute 
 ``pstat --complete $JOBID --force`` in bash, or ``prisms_jobs.complete_job()`` 

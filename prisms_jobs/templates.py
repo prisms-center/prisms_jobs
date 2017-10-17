@@ -1,5 +1,8 @@
-import job, misc
+from __future__ import (absolute_import, division, print_function, unicode_literals)
+from builtins import *
+
 import sys
+from prisms_jobs import job, misc
 
 def PrismsJob( name = "STDIN", \
                nodes = "1", \
@@ -19,15 +22,15 @@ def PrismsJob( name = "STDIN", \
     """
     
     if int(nodes)*int(ppn) > 1000:
-        print "Error in PrismsJob(). Requested more than 1000 cores."
+        print("Error in PrismsJob(). Requested more than 1000 cores.")
         sys.exit()
     
     if int(ppn) > 16:
-        print "Error in PrismsJob(). Requested more than 16 ppn."
+        print("Error in PrismsJob(). Requested more than 16 ppn.")
         sys.exit()
     
     if misc.hours(walltime) > 48.0:
-        print "Error in PrismsJob(). Requested more than 48 hrs walltime."
+        print("Error in PrismsJob(). Requested more than 48 hrs walltime.")
         sys.exit()
     
     j = job.Job( name = name, \
@@ -65,15 +68,15 @@ def NonPrismsJob( name = "STDIN", \
     """
     
     if int(nodes)*int(ppn) > 1000:
-        print "Error in NonPrismsJob(). Requested more than 1000 cores."
+        print("Error in NonPrismsJob(). Requested more than 1000 cores.")
         sys.exit()
     
     if int(ppn) > 16:
-        print "Error in NonPrismsJob(). Requested more than 16 ppn."
+        print("Error in NonPrismsJob(). Requested more than 16 ppn.")
         sys.exit()
     
     if misc.hours(walltime) > 48.0:
-        print "Error in NonPrismsJob(). Requested more than 48 hrs walltime."
+        print("Error in NonPrismsJob(). Requested more than 48 hrs walltime.")
         sys.exit()
     
     j = job.Job( name = name, \
@@ -111,15 +114,15 @@ def PrismsPriorityJob( name = "STDIN", \
     """
     
     if int(nodes)*int(ppn) > 1000:
-        print "Error in PrismsPriorityJob(). Requested more than 1000 cores."
+        print("Error in PrismsPriorityJob(). Requested more than 1000 cores.")
         sys.exit()
     
     if int(ppn) > 16:
-        print "Error in PrismsPriorityJob(). Requested more than 16 ppn."
+        print("Error in PrismsPriorityJob(). Requested more than 16 ppn.")
         sys.exit()
     
     if misc.hours(walltime) > 48.0:
-        print "Error in PrismsPriorityJob(). Requested more than 48 hrs walltime."
+        print("Error in PrismsPriorityJob(). Requested more than 48 hrs walltime.")
         sys.exit()
     
     j = job.Job( name = name, \
@@ -156,15 +159,15 @@ def PrismsDebugJob( name = "STDIN", \
     """
     
     if int(nodes)*int(ppn) > 80:
-        print "Error in PrismsDebugJob(). Requested more than 80 cores."
+        print("Error in PrismsDebugJob(). Requested more than 80 cores.")
         sys.exit()
     
     if int(ppn) > 16:
-        print "Error in PrismsDebugJob(). Requested more than 16 ppn."
+        print("Error in PrismsDebugJob(). Requested more than 16 ppn.")
         sys.exit()
     
     if misc.hours(walltime) > 6.0:
-        print "Error in PrismsDebugJob(). Requested more than 6 hrs walltime."
+        print("Error in PrismsDebugJob(). Requested more than 6 hrs walltime.")
         sys.exit()
     
     j = job.Job( name = name, \
@@ -205,7 +208,7 @@ def PrismsSpecialJob( name = "STDIN", \
     """
     
     if int(ppn) > 16:
-        print "Error in PrismsPriorityJob(). Requested more than 16 ppn."
+        print("Error in PrismsPriorityJob(). Requested more than 16 ppn.")
         sys.exit()
     
     j = job.Job( name = name, \

@@ -1,6 +1,5 @@
 # begin
 anaconda login
-conda config --set anaconda_upload yes
 
 # build, get location of result, upload
 conda build conda-recipes/prisms_jobs > conda-recipes/tmp.out
@@ -19,5 +18,4 @@ conda convert --platform linux-64 $LOCATION -o conda-recipes
 anaconda upload --user prisms-center conda-recipes/linux-64/prisms-jobs*
 
 # finish
-conda config --set anaconda_upload no
 anaconda logout

@@ -33,8 +33,8 @@ Possible values for "taskstatus" are:
 
 
 Jobs are marked 'auto' either by submitting through the python class ``prisms_jobs.Job`` 
-with the attribute ``auto=True``, or by submitting a PBS script which contains 
-the line ``#auto=True`` using the included ``psub`` script.  
+with the attribute ``auto=True``, or by submitting a script which contains 
+the line ``#auto=True`` using the included ``psub`` command line program.  
 
 Jobs can be monitored using the command line program ``pstat``. All 'auto' jobs 
 which have stopped can be resubmitted using ``pstat --continue``. In this case, 
@@ -70,7 +70,7 @@ Jobs not marked 'auto' are shown with the status "Check" in ``pstat`` until the 
 marks them as "Complete".
 
 
-## Installation from PyPI (todo)
+## Installation from PyPI
 
 Using ``pip``:
 
@@ -85,7 +85,7 @@ If installing to a user directory, you may need to set your PATH to find the ins
    	export PATH=$PATH:`python -m site --user-base`/bin
 
 
-## Install using conda (todo)
+## Install using conda
 
     conda config --add channels prisms-center
     conda install prisms-jobs
@@ -99,9 +99,9 @@ If installing to a user directory, you may need to set your PATH to find the ins
         git clone https://github.com/prisms-center/prisms_jobs.git
         cd prisms_jobs
 
-2. Checkout the branch/tag containing the version you wish to install. Latest is ``v3.0.1``:
+2. Checkout the branch/tag containing the version you wish to install. Latest is ``v4.0.0``:
 
-        git checkout v3.0.1
+        git checkout v4.0.0
 
 2. From the root directory of the repository:
 

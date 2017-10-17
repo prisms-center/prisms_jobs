@@ -1,5 +1,6 @@
-#!/usr/bin/env python
 """Print or modify PRISMS_JOBS job and task status."""
+from __future__ import (absolute_import, division, print_function, unicode_literals)
+from builtins import *
 
 ### External ###
 # import sys
@@ -12,7 +13,7 @@ import prisms_jobs  #pylint: disable=import-error
 
 DESC = \
 """
-Print or modify PRISMS_JOBS job and task status.
+Print or modify `prisms-jobs` job and task status.
 
 
 By default, 'pstat' prints status for select jobs. Jobs are
@@ -28,33 +29,34 @@ confirmation is required before a modification is applied,
 unless the --force option is given.
 
 
-Job status is as given by PRISMS_JOBS for a single job ('C', 'R',
+Job status is as given by `prisms-jobs` for a single job ('C', 'R',
 'Q', etc.).
 
 Task status is user-defined and defines the status of a single
 job within a possible series of jobs comprising some task.
 'Auto' jobs may be re-submitted with the --continue option.
-Please see:
-             https://github.com/prisms-center/prisms_jobs
-for more information about 'auto' jobs.
+
+Jobs are marked 'auto' either by submitting through the python 
+class ``prisms_jobs.Job`` with the attribute ``auto=True``, or 
+by submitting a script which contains the line ``#auto=True`` 
+via ``psub``. 
 
 Possible values for task status are:
 
-  "Complete":    Job and task are complete.
-
-  "Incomplete":  Job or task are incomplete.
-
-  "Continued":   Job is complete, but task was not complete. In
-                 this case, 'continuation_jobid' is set with
-                 the jobid for the next job in the series of
-                 jobs comprising some task.
-
-  "Check":       Non-auto job is complete and requires user
-                 input for status.
-
-  "Error:.*":    Some kind of error was noted.
-
-  "Aborted":     The job and task have been aborted.
++------------+------------------------------------------------+
+|"Complete"  |Job and task are complete.                      |
++------------+------------------------------------------------+
+|"Incomplete"|Job or task are incomplete.                     |
++------------+------------------------------------------------+
+|"Continued" |Job is complete, but task was not complete.     |
++------------+------------------------------------------------+
+|"Check"     |Non-auto job is complete and requires user      |
+|            |input for status.                               |
++------------+------------------------------------------------+
+|"Error:.*"  |Some kind of error was noted.                   |
++------------+------------------------------------------------+
+|"Aborted"   |The job and task have been aborted.             |
++------------+------------------------------------------------+
 """
 
 def make_parser():
@@ -107,7 +109,7 @@ def make_parser():
 
 def main(): #pylint: disable=missing-docstring, too-many-statements
 
-# functions
+    # functions
 
     def select_job(args):   #pylint: disable=redefined-outer-name
         """ Select which jobs to operate on """
@@ -172,13 +174,13 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
                 if eligible:
                     job.append(selected_job)
                 else:
-                    print id + ":", msg
+                    print(id + ":", msg)
             except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
-                print e
+                print(e)
 
 
         # print jobs to operate on:
-        print summary_msg
+        print(summary_msg)
 
         db.print_header()
 
@@ -191,12 +193,12 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
         else:
             # prompt user for confirmation
             while answer != "yes" and answer != "no":
-                answer = raw_input(prompt_msg)
+                answer = input(prompt_msg)
 
         # perform operation
         if answer == "yes" and job != []: # or args.select:
             for j in job:
-                print action_msg, j["jobid"]
+                print(action_msg, j["jobid"])
                 operation(job=j)
 
 
@@ -222,17 +224,17 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
                     for s in series: #pylint: disable=invalid-name
                         try:
                             job = db.select_job(s)
-                            print s, job[args.key[0]]
+                            print(s, job[args.key[0]])
                         except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
-                            print e
-                    print ""
+                            print(e)
+                    print("")
             else:
                 for j in jobid:
                     try:
                         job = db.select_job(j)
-                        print j, job[args.key[0]]
+                        print(j, job[args.key[0]])
                     except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
-                        print e
+                        print(e)
 
 
     def print_jobs(args):
@@ -241,14 +243,14 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
             # 'pstat --all' case
             #    show all and untracked
             db.print_all(full=args.full, series=args.series)
-            print '\n'
+            print('\n')
             db.print_untracked(full=args.full)
         elif (not args.all and not args.range and not args.recent
               and not args.regex and args.job == []):
             # default 'pstat' case with no selection
             #   show active and untracked
             db.print_active(full=args.full, series=args.series)
-            print '\n'
+            print('\n')
             db.print_untracked(full=args.full)
         else:
             # user defined selection (don't show untracked)
@@ -268,7 +270,7 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
                     try:
                         db.print_job(jobid=j, full=args.full, series=args.series)
                     except prisms_jobs.JobDBError as e: #pylint: disable=invalid-name
-                        print e
+                        print(e)
 
     parser = make_parser()
 
@@ -276,12 +278,12 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
 
 
 
-# open the Job database
+    # open the Job database
     db = prisms_jobs.JobDB()    #pylint: disable=invalid-name
     db.update()
 
 
-# perform an operation, or print jobs
+    # perform an operation, or print jobs
     if args.complete:
         operate(args, \
                 db.eligible_to_complete, \
@@ -329,7 +331,7 @@ def main(): #pylint: disable=missing-docstring, too-many-statements
     else:
         print_jobs(args)
 
-# close the database
+    # close the database
     db.close()
 
 if __name__ == "__main__":

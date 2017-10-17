@@ -1,7 +1,4 @@
-.. prisms_jobs documentation master file, created by
-   sphinx-quickstart on Mon Sep 11 12:22:02 2017.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. prisms_jobs
 
 Welcome to prisms-jobs's documentation!
 =======================================

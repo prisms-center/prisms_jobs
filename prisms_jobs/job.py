@@ -1,14 +1,16 @@
 """ Class for individual Job objects """
+from __future__ import (absolute_import, division, print_function, unicode_literals)
+from builtins import *
+
 ### External ###
 # import subprocess
-import re
 import os
+import re
 import sys
 
 ### Local ###
 import prisms_jobs
-import jobdb
-import misc
+from prisms_jobs import config, jobdb, misc
 
 class Job(object):  #pylint: disable=too-many-instance-attributes
     """Represents a computational job
@@ -170,8 +172,8 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
     #
 
     def sub_string(self):   #pylint: disable=too-many-branches
-        """ Output Job as a string suitable for prisms_jobs.software """
-        return prisms_jobs.software.sub_string(self)
+        """ Output Job as a string suitable for prisms_jobs.config.software() """
+        return config.software().sub_string(self)
 
     def script(self, filename="submit.sh"):
         """
@@ -186,7 +188,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
     def submit(self, add=True, dbpath=None):
         """
-        Submit this Job using the appropriate command for prisms_jobs.software.
+        Submit this Job using the appropriate command for prisms_jobs.config.software().
 
         Args:
            add (bool): Should this job be added to the JobDB database?
@@ -197,7 +199,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
         """
 
-        self.jobID = prisms_jobs.software.submit(substr=self.sub_string())
+        self.jobID = config.software().submit(substr=self.sub_string())
 
         if add:
             db = jobdb.JobDB(dbpath=dbpath) #pylint: disable=invalid-name
@@ -213,12 +215,12 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
     def read(self, qsubstr):    #pylint: disable=too-many-branches, too-many-statements
         """
         Set this Job object from string representing a submit script appropriate
-        for the prisms_jobs.software.
+        for the config.software().
 
         Args:
             qsubstr (str): A submit script as a string
 
         """
-        prisms_jobs.software.read(self, qsubstr)
+        config.software().read(self, qsubstr)
 
 
