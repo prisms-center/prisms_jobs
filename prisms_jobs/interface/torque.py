@@ -1,17 +1,23 @@
 """ Misc functions for interfacing between torque and the prisms_jobs module """
+from __future__ import (absolute_import, division, print_function, unicode_literals)
+from builtins import *
 
-import subprocess
-import os
-import StringIO
-import re
 import datetime
-import time
+import os
+import re
+import subprocess
 import sys
-from prisms_jobs import JobsError
-from prisms_jobs.misc import getlogin, seconds
+import time
+
 from distutils.spawn import find_executable
+from io import StringIO
+from six import iteritems, string_types
+
+from prisms_jobs import JobsError
+from prisms_jobs.misc import getlogin, run, seconds
 
 ### Internal ###
+
 
 def _getversion():
     """Returns the torque version as string or None if no ``qstat`` """
@@ -20,12 +26,10 @@ def _getversion():
     opt = ["qstat", "--version"]
 
     # call 'qstat' using subprocess
-    p = subprocess.Popen(opt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #pylint: disable=invalid-name
-    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-    sout = StringIO.StringIO(stdout)
-
+    stdout = run(opt)[0]
+    
     # return the version number
-    return sout.read().rstrip("\n").lower().lstrip("version: ")
+    return stdout.rstrip("\n").lower().lstrip("version: ")
 
 torque_version = _getversion()
 
@@ -37,24 +41,22 @@ def _qstat(jobid=None, username=getlogin(), full=False):
        'full' is the '-f' option
        'jobid' is a string or list of strings of job ids
 
-       Returns the text of qstat, minus the header lines
+    Returns:
+        str: the text of qstat, minus the header lines
     """
 
     # -u and -f contradict in earlier versions of Torque
-    if full and username is not None and int(torque_version.split(".")[0]) < 5 and jobid is None):
+    if full and username is not None and int(torque_version.split(".")[0]) < 5 and jobid is None:
         # First get all jobs by the user
         qopt = ["qselect"]
         qopt += ["-u", username]
 
         # Call 'qselect' using subprocess
-        q = subprocess.Popen(qopt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)     #pylint: disable=invalid-name
-        stdout, stderr = q.communicate()    #pylint: disable=unused-variable
-
-        qsout = StringIO.StringIO(stdout)
+        stdout = run(qopt)[0]
 
         # Get the jobids
         jobid = []
-        for line in qsout:
+        for line in StringIO(stdout):
             jobid += [line.rstrip("\n")]
 
     opt = ["qstat"]
@@ -68,22 +70,18 @@ def _qstat(jobid=None, username=getlogin(), full=False):
     if full:
         opt += ["-f"]
     if jobid is not None:
-        if isinstance(jobid, str) or isinstance(jobid, unicode):
+        if isinstance(jobid, string_types):
             jobid = [jobid]
         elif isinstance(jobid, list):
             pass
         else:
-            print "Error in prisms_jobs.interface.torque.qstat(). type(jobid):", type(jobid)
+            print("Error in prisms_jobs.interface.torque.qstat(). type(jobid):", type(jobid))
             sys.exit()
         opt += jobid
 
     # call 'qstat' using subprocess
-    # print opt
-    p = subprocess.Popen(opt, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)     #pylint: disable=invalid-name
-    stdout, stderr = p.communicate()        #pylint: disable=unused-variable
-
-    sout = StringIO.StringIO(stdout)
-
+    stdout, stderr, returncode = run(opt)        #pylint: disable=unused-variable
+    sout = StringIO(stdout)
     # strip the header lines
     if full is False:
         for line in sout:
@@ -149,8 +147,7 @@ def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
     if all or name is not None:
         jobid = []
         stdout = _qstat()
-        sout = StringIO.StringIO(stdout)
-        for line in sout:
+        for line in StringIO(stdout):
             if name is not None:
                 if line.split()[3] == name:
                     jobid.append((line.split()[0]).split(".")[0])
@@ -215,13 +212,10 @@ def job_status(jobid=None):
     """
     status = dict()
 
-    stdout = _qstat(jobid=jobid, full=True)
-    sout = StringIO.StringIO(stdout)
-
-### TODO: figure out why jobstatus is being initialized as a None vs as a dict() and then checked for content ### pylint: disable=fixme
+    sout = _qstat(jobid=jobid, full=True)
     jobstatus = None
 
-    for line in sout:
+    for line in StringIO(sout):
 
         m = re.search(r"Job Id:\s*(.*)\s", line)      #pylint: disable=invalid-name
         if m:
@@ -307,11 +301,14 @@ def job_status(jobid=None):
 
     return status
 
-def submit(substr):
+def submit(substr, write_submit_script=False):
     """Submit a job using ``qsub``.
 
     Args:
         substr (str): The submit script string
+        write_submit_script (bool, optional): If true, submit via file skipping  
+            lines containing '#PBS -N'; otherwise, submit via commandline. If
+            not specified, uses ``prisms_jobs.config['write_submit_script']``.
     
     Returns:
         str: ID of submitted job
@@ -320,20 +317,35 @@ def submit(substr):
         JobsError: If a submission error occurs
     """
 
-    m = re.search(r"-N\s+(.*)\s", substr)       #pylint: disable=invalid-name
+    m = re.search(r"#PBS\s+-N\s+(.*)\s", substr)       #pylint: disable=invalid-name
     if m:
         jobname = m.group(1)        #pylint: disable=unused-variable
     else:
         raise JobsError(
             None,
-            r"Error in prisms_jobs.misc.submit(). Jobname (\"-N\s+(.*)\s\") not found in submit string.")
+            r"""Error in pbs.misc.submit(). Jobname ("#PBS\s+-N\s+(.*)\s") not found in submit string.""")
 
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        "qsub", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate(input=substr)       #pylint: disable=unused-variable
-    print stdout[:-1]
+    if write_submit_script is None:
+        write_submit_script = prisms_jobs.config['write_submit_script']
+    
+    if write_submit_script:
+        if os.path.exists(jobname):
+            index = 0
+            while os.path.exists(jobname + ".bak." + str(index)):
+                index += 1
+            print("Backing up existing submit script:", jobname, "->", jobname + ".bak." + str(index))
+            os.rename(jobname, jobname + ".bak." + str(index))
+        # write submit script, without -N line
+        with open(jobname, 'w') as f:
+            for line in substr.splitlines():
+                if not re.search(r"#PBS\s+-N\s+(.*)", line):
+                    f.write(line + '\n')
+        stdout, stderr, returncode = run(["qsub", jobname])       #pylint: disable=unused-variable
+    else:
+        stdout, stderr, returncode = run(["qsub"], input=substr, stdin=subprocess.PIPE)  #pylint: disable=unused-variable
+    print(stdout[:-1])
     if re.search("error", stdout):
-        raise JobsError(0, "prisms_jobs submission error.\n" + stdout + "\n" + stderr)
+        raise JobsError(0, "Submission error.\n" + stdout + "\n" + stderr)
     else:
         jobid = stdout.split(".")[0]
         return jobid
@@ -348,10 +360,8 @@ def delete(jobid):
         int: ``qdel`` returncode
     
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["qdel", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()        #pylint: disable=unused-variable
-    return p.returncode
+    stdout, stderr, returncode = run(["qdel", jobid])        #pylint: disable=unused-variable
+    return returncode
 
 def hold(jobid):
     """``qhold`` a job.
@@ -363,10 +373,8 @@ def hold(jobid):
         int: ``qhold`` returncode
     
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["qhold", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-    return p.returncode
+    stdout, stderr, returncode = run(["qhold", jobid])    #pylint: disable=unused-variable
+    return returncode
 
 def release(jobid):
     """``qrls`` a job.
@@ -378,10 +386,8 @@ def release(jobid):
         int: ``qrls`` returncode
     
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["qrls", jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-    return p.returncode
+    stdout, stderr, returncode = run(["qrls", jobid])    #pylint: disable=unused-variable
+    return returncode
 
 def alter(jobid, arg):
     """``qalter`` a job.
@@ -393,10 +399,8 @@ def alter(jobid, arg):
     Returns:
         int: ``qalter`` returncode
     """
-    p = subprocess.Popen(   #pylint: disable=invalid-name
-        ["qalter"] + arg.split() + [jobid], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, stderr = p.communicate()    #pylint: disable=unused-variable
-    return p.returncode
+    stdout, stderr, returncode = run(["qalter"] + arg.split() + [jobid])    #pylint: disable=unused-variable
+    return returncode
 
 def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statements
     """
@@ -414,7 +418,7 @@ def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statemen
         qsubstr (str): A submit script as a string
 
     """
-    s = StringIO.StringIO(qsubstr)  #pylint: disable=invalid-name
+    s = StringIO(qsubstr)  #pylint: disable=invalid-name
 
     job.pmem = None
     job.email = None
@@ -520,7 +524,7 @@ def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statemen
                 job.auto = True
                 optional["auto"] = job.auto
             else:
-                print "Error in prisms_jobs.Job().read(). '#auto=' argument not understood:", line
+                print("Error in prisms_jobs.Job().read(). '#auto=' argument not understood:", line)
                 sys.exit()
 
         m = re.search(r"cd\s+\$PBS_O_WORKDIR\s+", line)  #pylint: disable=invalid-name
@@ -532,24 +536,24 @@ def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statemen
     # end for
 
     # check for required arguments
-    for k in required.keys():
+    for k in required:
         if required[k] == "Not Found":
 
-            print "Error in prisms_jobs.Job.read(). Not all required arguments were found.\n"
+            print("Error in prisms_jobs.Job.read(). Not all required arguments were found.\n")
 
             # print what we found:
-            print "Optional arguments:"
-            for k, v in optional.iteritems():    #pylint: disable=invalid-name
-                print k + ":", v
-            print "\nRequired arguments:"
-            for k, v in required.iteritems():    #pylint: disable=invalid-name
+            print("Optional arguments:")
+            for k, v in iteritems(optional):    #pylint: disable=invalid-name
+                print(k + ":", v)
+            print("\nRequired arguments:")
+            for k, v in iteritems(required):    #pylint: disable=invalid-name
                 if k == "command":
-                    print k + ":"
-                    print "--- Begin command ---"
-                    print v
-                    print "--- End command ---"
+                    print(k + ":")
+                    print("--- Begin command ---")
+                    print(v)
+                    print("--- End command ---")
                 else:
-                    print k + ":", v
+                    print(k + ":", v)
 
             sys.exit()
     # end if

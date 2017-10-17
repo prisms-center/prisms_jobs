@@ -1,5 +1,6 @@
 """ Stub to use when running on a machine without job management software """
-
+from __future__ import (absolute_import, division, print_function, unicode_literals)
+from builtins import *
 
 ### Required ###
 

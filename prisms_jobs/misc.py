@@ -1,10 +1,62 @@
-""" Misc functions for interacting between the OS and the pbs module """
+""" Misc functions for interacting between the OS and the prisms_jobs """
+from __future__ import (absolute_import, division, print_function, unicode_literals)
+from builtins import *
 
-import subprocess
-import os
-import StringIO
 import datetime
+import os
+import subprocess
 import sys
+
+def _set_encoding(encoding=None):
+    if encoding is None:
+        if sys.stdout.encoding is not None:
+            return sys.stdout.encoding
+        else:
+            return 'utf-8'
+    else:
+        return encoding
+
+def _decode(val, encoding=None):
+    try:
+        if isinstance(val, bytes):
+            return val.decode(_set_encoding(encoding))
+        else:
+            return val
+    except Exception as e:
+        print("Exception in prisms_jobs.misc._decode:", e)
+        print("val:", val)
+        print("sys.stdout.encoding:", sys.stdout.encoding)
+        raise e
+        
+def run(cmd, input=None, stdin=None, encoding=None):
+    """Run subprocess and return stdout, stderr as text, returncode as int
+    
+    Args:
+        cmd (List[str]): Command to run as subprocess
+        input (str): Data to be sent to child process
+        stdin (stream): Use subprocess.PIPE to pass data via stdin
+        encoding (str, optional): Encoding to use to decode stdout, stderr. By
+            default, uses sys.stdout.encoding if available, else 'utf-8'.
+    
+    Returns:
+        (stdout, stderr, returncode): With stdout and stderr as strings, and 
+            returncode as int
+    """
+    try:
+        p = subprocess.Popen(cmd, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        encoding = _set_encoding(encoding)
+        if input is not None:
+            input = bytearray(input, encoding=encoding)
+        stdout, stderr = p.communicate(input=input)
+        return (_decode(stdout, encoding), _decode(stderr, encoding), p.returncode)
+    except Exception as e:
+        print("Exception in prisms_jobs.misc.run:", e)
+        print("cmd:", cmd)
+        print("input:", input)
+        print("stdin:", stdin)
+        print("encoding:", encoding)
+        print("sys.stdout.encoding:", sys.stdout.encoding)
+        raise e
 
 def getlogin():
     """Returns os.getlogin(), else os.environ["LOGNAME"], else "?" """
@@ -30,7 +82,7 @@ def seconds(walltime):
                 + float(wtime[1])*60.0
                 + float(wtime[2]))
     else:
-        print "Error in walltime format:", walltime
+        print("Error in walltime format:", walltime)
         sys.exit()
 
 def hours(walltime):
@@ -48,7 +100,7 @@ def hours(walltime):
                 + float(wtime[1])/60.0
                 + float(wtime[2])/3600.0)
     else:
-        print "Error in walltime format:", walltime
+        print("Error in walltime format:", walltime)
         sys.exit()
 
 def strftimedelta(seconds):     #pylint: disable=redefined-outer-name
