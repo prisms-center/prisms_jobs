@@ -61,7 +61,9 @@ Example screen shot:
 
 Additionally, when scheduling periodic jobs is not allowed other ways, the 
 ``taskmaster`` script can fully automate this process. ``taskmaster`` executes 
-``pstat --continue`` and then resubmits itself to execute again periodically.
+``pstat --continue`` and then resubmits itself to execute again periodically. As 
+not all compute resources allow this behavior, remember check the policy prior 
+to using ``taskmaster`` on a new compute resource.
 
 A script marked 'auto' should check itself for completion and when reached execute 
 ``pstat --complete $JOBID --force`` in bash, or ``prisms_jobs.complete_job()`` 

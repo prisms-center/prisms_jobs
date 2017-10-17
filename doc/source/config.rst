@@ -47,7 +47,9 @@ Some configuration is possible:
         |"default" (or null)| Select jobs with jobstatus != 'C'              |
         +-------------------+------------------------------------------------+
         |"check_hostname"   | Select jobs with jobstatus != 'C' and matching |
-        |                   | hostname                                       |
+        |                   | hostname. This is useful on compute clusters   |
+        |                   | where multiple machines with different queues  |
+        |                   | share the same ``PRISMS_JOBS_DIR``.            |
         +-------------------+------------------------------------------------+
     
     - ``"taskmaster_job_kwargs"``: (JSON object, optional)
