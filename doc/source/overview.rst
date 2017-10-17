@@ -32,8 +32,8 @@ Possible values for "taskstatus" are:
 
 
 Jobs are marked 'auto' either by submitting through the python class ``prisms_jobs.Job`` 
-with the attribute ``auto=True``, or by submitting a PBS script which contains 
-the line ``#auto=True`` using the included ``psub`` script.  
+with the attribute ``auto=True``, or by submitting a script which contains 
+the line ``#auto=True`` using the included ``psub`` command line program.  
 
 Jobs can be monitored using the command line program ``pstat``. All 'auto' jobs 
 which have stopped can be resubmitted using ``pstat --continue``. In this case, 

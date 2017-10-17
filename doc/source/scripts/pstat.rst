@@ -1,12 +1,10 @@
 .. scripts/pstat.rst
 
-pstat
-=====
+``pstat``
+=========
 
-
-Summary
--------
-
+Summary:
+--------
 
 ``pstat`` gives command line access to the jobs database. It can be used to:
 
@@ -28,12 +26,11 @@ Summary
 - Delete jobs from the database (and abort if currently running)
   
 
-Help documentation:
--------------------
+``--help`` documentation:
+-------------------------
 
 .. argparse::
-    :filename: scripts/pstat
+    :filename: prisms_jobs/scripts/pstat.py
     :func: make_parser
     :prog: pstat
-    
-    
+

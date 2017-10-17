@@ -16,7 +16,6 @@ prisms_jobs
     prisms_jobs.EligibilityError
     prisms_jobs.complete_job
     prisms_jobs.error_job
-    prisms_jobs.set_software
 
 prisms_jobs.interface
 ---------------------
@@ -27,6 +26,26 @@ prisms_jobs.interface
     prisms_jobs.interface.torque
     prisms_jobs.interface.slurm
     prisms_jobs.interface.default
+
+prisms_jobs.config
+---------------------
+
+.. autosummary::
+    :toctree:
+
+    prisms_jobs.config.configure
+    prisms_jobs.config.dbpath
+    prisms_jobs.config.settings
+    prisms_jobs.config.read_config
+    prisms_jobs.config.write_config
+    prisms_jobs.config.default_settings
+    prisms_jobs.config.config_dir
+    prisms_jobs.config.config_path
+    prisms_jobs.config.update_selection_method
+    prisms_jobs.config.set_update_selection_method
+    prisms_jobs.config.software
+    prisms_jobs.config.set_software
+    prisms_jobs.config.detect_software
     
 prisms_jobs.misc
 ----------------

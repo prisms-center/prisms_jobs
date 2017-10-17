@@ -1,15 +1,18 @@
 .. scripts/psub.rst
 
-psub
-====
+``psub``
+========
+
+Summary:
+--------
 
 ``psub`` submits a job script and adds the job to the job database.
 
-Help documentation:
--------------------
+``--help`` documentation:
+-------------------------
 
 .. argparse::
-    :filename: scripts/psub
+    :filename: prisms_jobs/scripts/psub.py
     :func: parser
     :prog: psub
     

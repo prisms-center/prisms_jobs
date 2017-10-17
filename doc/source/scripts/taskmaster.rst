@@ -1,26 +1,26 @@
 .. scripts/taskmaster.rst
 
-taskmaster
-==========
+``taskmaster``
+==============
 
-``taskmaster`` submits a job on the PRISMS flux debug queue that will repeatedly
-resubmit any ``Auto`` jobs in the job database that have completed but whose
-taskstatus is still ``'Incomplete'`` (perhaps because the jobs has hit the walltime
-before completing or failed to converge) and then resubmit itself with a delay
-before execution.
+Summary:
+--------
 
-To use on machines other than flux change the line containing 
+``taskmaster`` submits a job that will repeatedly resubmit any ``Auto`` jobs in 
+the job database that have completed but whose taskstatus is still ``'Incomplete'`` 
+(perhaps because the jobs has hit the walltime before completing or failed to 
+converge) and then resubmit itself with a delay before execution.
 
-::
+The job submission options can be customized by editing the ``prisms-jobs``
+`configuration file`_.
 
-    j = prisms_jobs.templates.PrismsDebugJob(...)
 
-Help documentation:
--------------------
+``--help`` documentation:
+-------------------------
 
 .. argparse::
-    :filename: scripts/taskmaster
+    :filename: prisms_jobs/scripts/taskmaster.py
     :func: parser
     :prog: taskmaster
-    
-    
+
+_`configuration file`: config.html
