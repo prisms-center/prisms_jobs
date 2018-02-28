@@ -9,13 +9,17 @@ if [ -z $LOCATION ]; then
 fi
 anaconda upload --user prisms-center $LOCATION
 
-# if on linux, convert to osx
-conda convert --platform osx-64 $LOCATION -o conda-recipes
-anaconda upload --user prisms-center conda-recipes/osx-64/prisms-jobs*
+VERSION=`echo $LOCATION | perl -ne '/prisms-jobs-(.*)-/ && print $1'`
 
-# if on osx, convert to linux
-conda convert --platform linux-64 $LOCATION -o conda-recipes
-anaconda upload --user prisms-center conda-recipes/linux-64/prisms-jobs*
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+    # if on linux, convert to osx
+    conda convert --platform osx-64 $LOCATION -o conda-recipes
+    anaconda upload --user prisms-center conda-recipes/osx-64/prisms-jobs-$VERSION*
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # if on osx, convert to linux
+    conda convert --platform linux-64 $LOCATION -o conda-recipes
+    anaconda upload --user prisms-center conda-recipes/linux-64/prisms-jobs-$VERSION*
+fi
 
 # finish
 anaconda logout
