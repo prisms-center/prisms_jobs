@@ -14,7 +14,7 @@ class JobsError(Exception):
 from prisms_jobs.job import Job
 from prisms_jobs.jobdb import JobDB, JobDBError, EligibilityError, complete_job, error_job
 
-__version__ = '4.0.dev0'
+__version__ = '4.0.1'
 __all__ = [
     'Job',
     'JobDB',

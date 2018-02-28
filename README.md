@@ -99,9 +99,9 @@ If installing to a user directory, you may need to set your PATH to find the ins
         git clone https://github.com/prisms-center/prisms_jobs.git
         cd prisms_jobs
 
-2. Checkout the branch/tag containing the version you wish to install. Latest is ``v4.0.0``:
+2. Checkout the branch/tag containing the version you wish to install. Latest is ``v4.0.1``:
 
-        git checkout v4.0.0
+        git checkout v4.0.1
 
 2. From the root directory of the repository:
 
