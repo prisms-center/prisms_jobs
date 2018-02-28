@@ -4,6 +4,7 @@ from builtins import *
 
 import datetime
 import os
+import pwd
 import subprocess
 import sys
 
@@ -61,11 +62,9 @@ def run(cmd, input=None, stdin=None, encoding=None):
 def getlogin():
     """Returns os.getlogin(), else os.environ["LOGNAME"], else "?" """
     try:
-        return os.getlogin()
-    except OSError:
-        return os.environ["LOGNAME"]
-    else:
-        return "?"
+        return pwd.getpwuid(os.getuid())[0]
+    except:
+        return os.environ.get("LOGNAME","?")
 
 def seconds(walltime):
     """Convert [[[DD:]HH:]MM:]SS to hours"""
