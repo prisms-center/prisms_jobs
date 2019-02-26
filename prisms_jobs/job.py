@@ -21,11 +21,11 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
     Args:
         substr (str): A submit script as a string.
         name (str): Job name. Ex: ``"myjob-0"``
-            
-            The name specified may be up to and including 15 characters 
+
+            The name specified may be up to and including 15 characters
             in length. It must consist of printable, non white space characters
-            with the first character alphabetic.    
-        
+            with the first character alphabetic.
+
         account (str):  Account name. Ex: ``"prismsproject_fluxoe"``
         nodes (int):    Number of nodes. Ex: 2
         ppn (int):      Processors per node. Ex: 16
@@ -33,46 +33,46 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         pmem (str):     Memory requsted. Ex: ``"3800mb"``
         qos (str):      Ex: ``"flux"``
         queue (str):    Ex: ``"fluxoe"``
-        
+
         exetime (str):  Time after which the job is eligible for execution. Ex: ``"1100"``
-            
+
             Has the form: ``[[[[CC]YY]MM]DD]hhmm[.SS]``
-            Create using ``prisms_jobs.misc.exetime(deltatime)``, where deltatime 
+            Create using ``prisms_jobs.misc.exetime(deltatime)``, where deltatime
             is a ``[[[DD:]MM:]HH:]SS`` string.
-        
+
         message (str):  When to send email about the job. Ex: ``"abe"``
-            
+
             The mail_options argument is a string which consists of either the single
             character ``"n"``, or one or more of the characters ``"a"``, ``"b"``,
             and ``"e"``.
-        
+
             If the character ``"n"`` is specified, no normal mail is sent. Mail for job
             cancels and other events outside of normal job processing are still sent.
-        
+
             For the letters ``"a"``, ``"b"``, and ``"e"``:
-            
+
                ===    ===
                 a     mail is sent when the job is aborted by the batch system.
                 b     mail is sent when the job begins execution.
                 e     mail is sent when the job terminates.
                ===    ===
-        
+
         email (str):  Where to send notifications.  Ex: ``"jdoe@umich.edu"``
-            
+
             The email string is of the form: ``user[@host][,user[@host],...]``
-        
+
         priority (str):  Priority ranges from (low) -1024 to (high) 1023. Ex: ``"-200"``
-        
+
         command (str):   String with command to run by script. Ex: ``"echo \"hello\" > test.txt"``
-        
+
         auto (bool, optional, Default=False):
-        
+
             Indicates an automatically re-submitting job.  Ex: ``True``
-            
-            Only set to True if the command uses this prisms_jobs module to set 
-            itself as completed when it is completed. Otherwise, you may submit 
+
+            Only set to True if the command uses this prisms_jobs module to set
+            itself as completed when it is completed. Otherwise, you may submit
             it extra times leading to wasted resources and overwritten data.
-    
+
     Attributes:
         name (str): Job name. Ex: ``"myjob-0"``
         account (str):  Account name. Ex: ``"prismsproject_fluxoe"``
@@ -86,15 +86,16 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         message (str):  When to send email about the job. Ex: ``"abe"``
         email (str):  Where to send notifications.  Ex: ``"jdoe@umich.edu"``
         priority (str):  Priority ranges from (low) -1024 to (high) 1023. Ex: ``"-200"``
+        constraint (str): Constraint. Ex: ``"haswell"``
         command (str):   String with command to run by script. Ex: ``"echo \"hello\" > test.txt"``
         auto (bool):     Indicates an automatically re-submitting job.  Ex: ``True``
-        
+
     """
 
 
     def __init__(self, name="STDIN", account=None, nodes=None, ppn=None, walltime=None, #pylint: disable=too-many-arguments, too-many-locals
                  pmem=None, qos=None, queue=None, exetime=None, message="a", email=None,
-                 priority="0", command=None, auto=False, substr=None):
+                 priority="0", constraint=None, command=None, auto=False, substr=None):
 
         if substr != None:
             self.read(substr)
@@ -154,6 +155,9 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         # Priority ranges from (low) -1024 to (high) 1023
         self.priority = priority
 
+        # Constraint (str): Ex: ``"haswell"``
+        self.constraint = constraint
+
         # text string with command to run
         self.command = command
 
@@ -193,7 +197,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         Args:
            add (bool): Should this job be added to the JobDB database?
            dbpath (str): Specify a non-default JobDB database
-        
+
         Raises:
             prisms_jobs.JobsError: If error submitting the job.
 
@@ -222,5 +226,3 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
         """
         config.software().read(self, qsubstr)
-
-
