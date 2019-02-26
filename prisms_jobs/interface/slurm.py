@@ -14,6 +14,7 @@ import time
 from io import StringIO
 
 ### Internal ###
+import prisms_jobs
 from prisms_jobs import JobsError
 from prisms_jobs.misc import getlogin, run, seconds
 
@@ -92,7 +93,7 @@ NAME = 'slurm'
 
 def sub_string(job):
     """Write Job as a string suitable for slurm
-    
+
     Args:
         prisms_jobs.Job: Job to be submitted
     """
@@ -122,24 +123,26 @@ def sub_string(job):
     # jobstr += "#SBATCH -N {0}\n".format(job.nodes)
     if job.queue is not None:
         jobstr += "#SBATCH -p {0}\n".format(job.queue)
+    if job.constraint is not None:
+        jobstr += "#SBATCH --constraint={0}\n".format(job.constraint)
     jobstr += "{0}\n".format(job.command)
 
     return jobstr
 
 def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
     """Get job IDs
-    
+
     Args:
-        all (bool): If True, use ``squeue`` to query all user jobs. Else, check 
+        all (bool): If True, use ``squeue`` to query all user jobs. Else, check
         ``SLURM_JOBID`` environment variable for ID of current job.
-        
+
         name (str): If all==True, use name to filter results.
-    
+
     Returns:
         One of str, List(str), or None:
-            Returns a str if all==False and ``SLURM_JOBID`` exists, a List(str) 
+            Returns a str if all==False and ``SLURM_JOBID`` exists, a List(str)
             if all==True,  else None.
-    
+
     """
     if all or name is not None:
         jobid = []
@@ -163,7 +166,7 @@ def job_rundir(jobid):
     Args:
         jobid (str or List(str)):
             IDs of jobs to get the run directory
-    
+
     Returns:
         dict:
             A dict, with id:rundir pairs.
@@ -189,11 +192,11 @@ def job_status(jobid=None):
             IDs of jobs to query for status. None for all user jobs.
 
     Returns:
-    
+
         dict of dict:
-        
+
             The outer dict uses jobid as key; the inner dict contains:
-       
+
             ================    ======================================================
             "name"              Job name
             "nodes"             Number of nodes
@@ -319,14 +322,14 @@ def submit(substr, write_submit_script=None):
 
     Args:
         substr (str): The submit script string
-        write_submit_script (bool, optional): If true, submit via file skipping  
+        write_submit_script (bool, optional): If true, submit via file skipping
             lines containing '#SBATCH -J'; otherwise, submit via commandline. If
             not specified, uses ``prisms_jobs.config['write_submit_script']``.
-            
-    
+
+
     Returns:
         str: ID of submitted job
-    
+
     Raises:
         JobsError: If a submission error occurs
     """
@@ -338,10 +341,10 @@ def submit(substr, write_submit_script=None):
         raise JobsError(
             None,
             r"""Error in pbs.misc.submit(). Jobname ("#SBATCH\s+-J\s+(.*)\s") not found in submit string.""")
-    
+
     if write_submit_script is None:
-        write_submit_script = prisms_jobs.config['write_submit_script']
-    
+        write_submit_script = prisms_jobs.config.write_submit_script()
+
     if write_submit_script:
         if os.path.exists(jobname):
             index = 0
@@ -366,37 +369,37 @@ def submit(substr, write_submit_script=None):
 
 def delete(jobid):
     """``scancel`` a job.
-    
+
     Args:
         jobid (str): ID of job to cancel
-    
+
     Returns:
         int: ``scancel`` returncode
-    
+
     """
     return run(["scancel", jobid])[2]
 
 def hold(jobid):
     """``scontrol`` delay a job.
-    
+
     Args:
         jobid (str): ID of job to delay (for 30days)
-    
+
     Returns:
         int: ``scontrol`` returncode
-    
+
     """
     return run(["scontrol", "update", "JobId=", jobid, "StartTime=", "now+30days"])[2]
 
 def release(jobid):
     """``scontrol`` un-delay a job.
-    
+
     Args:
         jobid (str): ID of job to release
-    
+
     Returns:
         int: ``scontrol`` returncode
-    
+
     """
     return run(["scontrol", "update", "JobId=", jobid, "StartTime=", "now"])[2]
 
@@ -406,7 +409,7 @@ def alter(jobid, arg):
     Args:
         jobid (str): ID of job to alter
         arg (str): 'arg' is a scontrol command option string. For instance, "-a 201403152300.19"
-    
+
     Returns:
         int: ``scontrol`` returncode
     """
@@ -415,4 +418,3 @@ def alter(jobid, arg):
 def read(job, qsubstr):
     """Raise exception"""
     raise Exception("primsms_jobs.read is not yet implemented for Slurm")
-
