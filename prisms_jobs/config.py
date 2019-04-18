@@ -14,10 +14,11 @@ import prisms_jobs
 
 __settings = None
 __software = None
+__write_submit_script = None
 __update_selection_method = None
 
 _IMPORT_WARNING_MSG = """\
-prisms_jobs does not detect any job management software 
+prisms_jobs does not detect any job management software
 and the 'PRISMS_JOBS_SOFTWARE' environment variable is not set.
 """
 
@@ -27,7 +28,7 @@ def detect_software():
 
     Returns:
         A string naming the job management software, or None. Possibilities are:
-    
+
             * 'torque' - detected via 'qsub'
             * 'slurm' - detected via 'sbatch'
     """
@@ -44,17 +45,17 @@ def set_software(software_name=None):
 
     Args:
         software_name (str, optional, default=None):
-            
+
             ===================    =======================================================
             'torque'               TORQUE
             'slurm'                SLURM
             <other_module>         The name of an existing findable python module
             None or 'default'      Empty stub, does nothing
             ===================    =======================================================
-    
+
     Raises:
         prisms_jobs.JobDBError: If software_name is unrecognized
-        
+
     """
     if software_name is None:
         software_name = 'default'
@@ -91,7 +92,7 @@ def _default_update_selection(curs):
 def _check_hostname_update_selection(curs):
     """Select jobs with jobstatus!='C' and matching hostname"""
     hostname = socket.gethostname()
-    
+
     # Parse our hostname so we can only select jobs from THIS host
     #   Otherwise, if we're on a multiple-clusters-same-home setup,
     #   we may incorrectly update jobs from one cluster onto the other
@@ -107,15 +108,15 @@ def _check_hostname_update_selection(curs):
 
 def set_update_selection_method(update_method=None):
     """Enable customization of which jobs are selected for JobDB.update()
-    
+
     Args:
         update_method (str, optional):
-        
+
             ===================    =======================================================
             'default' (or None)    Select jobs with jobstatus != 'C'
             'check_hostname'       Select jobs with jobstatus != 'C' and matching hostname
             ===================    =======================================================
-    
+
     Raises:
         prisms_jobs.JobsError: For unexpected value.
     """
@@ -135,6 +136,19 @@ def update_selection_method():
         configure()
     return __update_selection_method
 
+def set_write_submit_script(write_submit_script=None):
+    """If true, write submit script to file and then submit job; else submit via command line."""
+    global __write_submit_script
+    if __write_submit_script is None:
+        __write_submit_script = write_submit_script
+    return __write_submit_script
+
+def write_submit_script():
+    """If true, write submit script to file and then submit job; else submit via command line."""
+    if __write_submit_script is None:
+        configure()
+    return __write_submit_script
+
 
 def config_dir():
     """Return configuration directory"""
@@ -148,13 +162,13 @@ def config_path(dir=None):
 
 def default_settings(dir=None):
     """Default configuration dictionary
-    
+
     Args:
         dir (str): Location of the directory storing the config.json file.
-    
+
     Notes:
         See configure for details.
-    
+
     Returns:
         Dict with configuration settings.
     """
@@ -169,15 +183,15 @@ def default_settings(dir=None):
 
 def read_config(dir=None):
     """Read configuration file.
-    
+
     Note:
         Will create with default values if not existing.
-    
+
     Args:
         dir (str, optional): Location of the directory storing the config.json file.
             The default location is ``$PRISMS_JOBS_DIR/.prisms_jobs``, where
             the environment variable ``PRISMS_JOBS_DIR``=``$HOME`` if not set.
-    
+
     Returns:
         Dict with configuration settings.
     """
@@ -205,14 +219,14 @@ def read_config(dir=None):
 
 def write_config(dir=None, settings=None):
     """Write current configuration settings to file.
-    
+
     Args:
         dir (str, optional): Location of the directory storing the config.json file.
             The default location is ``$PRISMS_JOBS_DIR/.prisms_jobs``, where
             the environment variable ``PRISMS_JOBS_DIR``=``$HOME`` if not set.
         settings (dict, optional): Settings to write to config.json file. Uses
             current settings by default.
-    
+
     Returns:
         Dict with configuration settings.
     """
@@ -238,9 +252,9 @@ def dbpath():
 
 def configure(settings=None):
     """Set configuration
-    
+
     Sets the global configuration settings dictionary. Options are:
-        
+
         * 'dbpath': (str)
             Location of the SQLite jobs database.
         * 'software': (str)
@@ -251,11 +265,11 @@ def configure(settings=None):
         * 'update_method': (str, default='default')
             Controls which jobs are updated when JobDB.update() is called.
             See set_update_selection_method for options.
-    
+
     The values are then used to update:
         * software: Module used to interface with job submission software
         * update_selection_method: Function used by JobDB.update()
-    
+
     Args:
         config_dict (dict, optional): All configuration settings. Default reads
             configuration settings using read_config.
@@ -265,5 +279,5 @@ def configure(settings=None):
     global __settings
     __settings = settings
     set_software(__settings['software'])
+    set_write_submit_script(__settings['write_submit_script'])
     set_update_selection_method(__settings['update_method'])
- 

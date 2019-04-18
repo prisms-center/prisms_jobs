@@ -9,17 +9,17 @@ class JobsError(Exception):
 
     def __str__(self):
         return self.jobid + ": " + self.msg
-    
+
 # import into 'prisms_jobs'
 from prisms_jobs.job import Job
 from prisms_jobs.jobdb import JobDB, JobDBError, EligibilityError, complete_job, error_job
 
-__version__ = '4.0.1'
+__version__ = '4.0.2'
 __all__ = [
     'Job',
     'JobDB',
     'JobsError',
     'JobDBError',
-    'EligibilityError', 
+    'EligibilityError',
     'complete_job',
     'error_job']

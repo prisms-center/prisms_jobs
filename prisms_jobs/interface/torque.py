@@ -13,6 +13,7 @@ from distutils.spawn import find_executable
 from io import StringIO
 from six import iteritems, string_types
 
+import prisms_jobs
 from prisms_jobs import JobsError
 from prisms_jobs.misc import getlogin, run, seconds
 
@@ -27,7 +28,7 @@ def _getversion():
 
     # call 'qstat' using subprocess
     stdout = run(opt)[0]
-    
+
     # return the version number
     return stdout.rstrip("\n").lower().lstrip("version: ")
 
@@ -97,7 +98,7 @@ NAME = 'torque'
 
 def sub_string(job):
     """Write Job as a string suitable for torque
-    
+
     Args:
         job (prisms_jobs.Job instance): Job to be submitted
     """
@@ -131,18 +132,18 @@ def sub_string(job):
 
 def job_id(all=False, name=None):       #pylint: disable=redefined-builtin
     """Get job IDs
-    
+
     Args:
-        all (bool): If True, use ``qstat`` to query all user jobs. Else, check 
+        all (bool): If True, use ``qstat`` to query all user jobs. Else, check
         ``PBS_JOBID`` environment variable for ID of current job.
-        
+
         name (str): If all==True, use name to filter results.
-    
+
     Returns:
         One of str, List(str), or None:
-            Returns a str if all==False and ``PBS_JOBID`` exists, a List(str) 
+            Returns a str if all==False and ``PBS_JOBID`` exists, a List(str)
             if all==True, else None.
-    
+
     """
     if all or name is not None:
         jobid = []
@@ -166,7 +167,7 @@ def job_rundir(jobid):
     Args:
         jobid (str or List(str)):
             IDs of jobs to get the run directory
-    
+
     Returns:
         dict:
             A dict, with id:rundir pairs.
@@ -192,11 +193,11 @@ def job_status(jobid=None):
             IDs of jobs to query for status. None for all user jobs.
 
     Returns:
-    
+
         dict of dict:
-        
+
             The outer dict uses jobid as key; the inner dict contains:
-       
+
             ================    ======================================================
             "name"              Job name
             "nodes"             Number of nodes
@@ -208,7 +209,7 @@ def job_status(jobid=None):
             "starttime"         None if not started, else seconds since epoch as int
             "completiontime"    None if not completed, else seconds since epoch as int
             ================    ======================================================
-            
+
     """
     status = dict()
 
@@ -301,18 +302,18 @@ def job_status(jobid=None):
 
     return status
 
-def submit(substr, write_submit_script=False):
+def submit(substr, write_submit_script=None):
     """Submit a job using ``qsub``.
 
     Args:
         substr (str): The submit script string
-        write_submit_script (bool, optional): If true, submit via file skipping  
+        write_submit_script (bool, optional): If true, submit via file skipping
             lines containing '#PBS -N'; otherwise, submit via commandline. If
             not specified, uses ``prisms_jobs.config['write_submit_script']``.
-    
+
     Returns:
         str: ID of submitted job
-    
+
     Raises:
         JobsError: If a submission error occurs
     """
@@ -326,8 +327,8 @@ def submit(substr, write_submit_script=False):
             r"""Error in pbs.misc.submit(). Jobname ("#PBS\s+-N\s+(.*)\s") not found in submit string.""")
 
     if write_submit_script is None:
-        write_submit_script = prisms_jobs.config['write_submit_script']
-    
+        write_submit_script = prisms_jobs.config.write_submit_script()
+
     if write_submit_script:
         if os.path.exists(jobname):
             index = 0
@@ -352,39 +353,39 @@ def submit(substr, write_submit_script=False):
 
 def delete(jobid):
     """``qdel`` a PBS job.
-    
+
     Args:
         jobid (str): ID of job to delete
-    
+
     Returns:
         int: ``qdel`` returncode
-    
+
     """
     stdout, stderr, returncode = run(["qdel", jobid])        #pylint: disable=unused-variable
     return returncode
 
 def hold(jobid):
     """``qhold`` a job.
-    
+
     Args:
         jobid (str): ID of job to hold
-    
+
     Returns:
         int: ``qhold`` returncode
-    
+
     """
     stdout, stderr, returncode = run(["qhold", jobid])    #pylint: disable=unused-variable
     return returncode
 
 def release(jobid):
     """``qrls`` a job.
-    
+
     Args:
         jobid (str): ID of job to release
-    
+
     Returns:
         int: ``qrls`` returncode
-    
+
     """
     stdout, stderr, returncode = run(["qrls", jobid])    #pylint: disable=unused-variable
     return returncode
@@ -395,7 +396,7 @@ def alter(jobid, arg):
     Args:
         jobid (str): ID of job to alter
         arg (str): 'arg' is a scontrol command option string. For instance, "-a 201403152300.19"
-    
+
     Returns:
         int: ``qalter`` returncode
     """
@@ -408,12 +409,12 @@ def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statemen
 
     * Will read many but not all valid PBS scripts.
     * Will ignore any arguments not included in prisms_jobs.Job()'s attributes.
-    * Will add default optional arguments (i.e. ``-A``, ``-a``, ``-l pmem=(.*)``, 
+    * Will add default optional arguments (i.e. ``-A``, ``-a``, ``-l pmem=(.*)``,
       ``-l qos=(.*)``, ``-M``, ``-m``, ``-p``, ``"Auto:"``) if not found.
-    * Will ``exit()`` if required arguments (``-N``, ``-l walltime=(.*)``, 
+    * Will ``exit()`` if required arguments (``-N``, ``-l walltime=(.*)``,
       ``-l nodes=(.*):ppn=(.*)``, ``-q``, ``cd $PBS_O_WORKDIR``) not found.
     * Will always include ``-V``
-    
+
     Args:
         qsubstr (str): A submit script as a string
 
@@ -558,4 +559,3 @@ def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statemen
             sys.exit()
     # end if
 # end def
-
