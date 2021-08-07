@@ -1,9 +1,9 @@
 package:
   name: prisms-jobs
-  version: "4.0.2"
+  version: {{ PRISMS_JOBS_VERSION }}
 
 source:
-  git_rev: v4.0.2
+  git_rev: v{{ PRISMS_JOBS_VERSION }}
   git_url: https://github.com/prisms-center/prisms_jobs.git
 
 requirements:
