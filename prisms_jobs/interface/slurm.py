@@ -51,7 +51,7 @@ def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pyli
                 # Get the jobids
                 jobid = []
                 for line in StringIO(qsout):
-                    jobid += [line.rstrip("\n")]
+                    jobid += [line.rstrip("\n").split()[0]]
                 # Great, now we have some jobids to pass along
 
         # Ensure the jobids are a list, even if they're a list of 1...
@@ -198,7 +198,7 @@ def job_status(jobid=None):
             The outer dict uses jobid as key; the inner dict contains:
 
             ================    ======================================================
-            "name"              Job name
+            "jobname"           Job name
             "nodes"             Number of nodes
             "procs"             Number of processors
             "walltime"          Walltime
@@ -216,7 +216,7 @@ def job_status(jobid=None):
 
     jobstatus = {
         "jobid" : None,
-        "name" : None,
+        "jobname" : None,
         "nodes" : None,
         "procs" : None,
         "walltime" : None,
@@ -233,7 +233,7 @@ def job_status(jobid=None):
         if m:
             if jobstatus["jobstatus"] is not None:
                 status[jobstatus["jobid"]] = jobstatus
-            jobstatus = {"jobid" : None, "name" : None, "nodes" : None, "procs" : None, "walltime" : None, "qstatstr" : None, "elapsedtime" : None, "starttime" : None, "completiontime" : None, "jobstatus" : None, "cluster" : None}
+            jobstatus = {"jobid" : None, "jobname" : None, "nodes" : None, "procs" : None, "walltime" : None, "qstatstr" : None, "elapsedtime" : None, "starttime" : None, "completiontime" : None, "jobstatus" : None, "cluster" : None}
             jobstatus["jobid"] = m.group(1)
 
             # Grab the job name
@@ -248,10 +248,10 @@ def job_status(jobid=None):
         jobstatus["qstatstr"] += line
 
         # Look for the Nodes/PPN Info
-        m = re.search(r"NumNodes=\s*([0-9]*)\s", line) #pylint: disable=invalid-name
+        m = re.search(r"NumNodes=\s*([0-9]*)\s", line)
         if m:
             jobstatus["nodes"] = int(m.group(1))
-            m = re.match(r"\S*\s*NumCPUs=\s*([0-9]*)\s", line) #pylint: disable=invalid-name
+            m = re.search(r"NumCPUs=\s*([0-9]*)\s", line)
             if m:
                 jobstatus["procs"] = int(m.group(1))
             continue

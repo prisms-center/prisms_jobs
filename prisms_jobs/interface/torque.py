@@ -199,12 +199,12 @@ def job_status(jobid=None):
             The outer dict uses jobid as key; the inner dict contains:
 
             ================    ======================================================
-            "name"              Job name
+            "jobname"           Job name
             "nodes"             Number of nodes
             "procs"             Number of processors
             "walltime"          Walltime
             "jobstatus"         status ("Q","C","R", etc.)
-            "qstatstr"          result of ``squeue -f jobid``, None if not found
+            "qstatstr"          result of ``qstat -f jobid``, None if not found
             "elapsedtime"       None if not started, else seconds as int
             "starttime"         None if not started, else seconds since epoch as int
             "completiontime"    None if not completed, else seconds since epoch as int
@@ -441,7 +441,7 @@ def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statemen
     optional["qos"] = "Default: None"
 
     required = dict()
-    required["name"] = "Not Found"
+    required["jobname"] = "Not Found"
     required["walltime"] = "Not Found"
     required["nodes"] = "Not Found"
     required["ppn"] = "Not Found"
@@ -458,7 +458,7 @@ def read(job, qsubstr):    #pylint: disable=too-many-branches, too-many-statemen
             m = re.search(r"-N\s+(.*)\s", line) #pylint: disable=invalid-name
             if m:
                 job.name = m.group(1)
-                required["name"] = job.name
+                required["jobname"] = job.name
 
             m = re.search(r"-A\s+(.*)\s", line)  #pylint: disable=invalid-name
             if m:

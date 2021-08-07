@@ -36,10 +36,10 @@ Task status is user-defined and defines the status of a single
 job within a possible series of jobs comprising some task.
 'Auto' jobs may be re-submitted with the --continue option.
 
-Jobs are marked 'auto' either by submitting through the python 
-class ``prisms_jobs.Job`` with the attribute ``auto=True``, or 
-by submitting a script which contains the line ``#auto=True`` 
-via ``psub``. 
+Jobs are marked 'auto' either by submitting through the python
+class ``prisms_jobs.Job`` with the attribute ``auto=True``, or
+by submitting a script which contains the line ``#auto=True``
+via ``psub``.
 
 Possible values for task status are:
 
@@ -103,9 +103,9 @@ def make_parser():
 
     parser.add_argument('--force', default=False, action='store_true',
                         help='Modify jobs without user confirmation')
-    
+
     return parser
-    
+
 
 def main(): #pylint: disable=missing-docstring, too-many-statements
 

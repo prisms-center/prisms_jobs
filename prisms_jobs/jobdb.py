@@ -172,15 +172,15 @@ class CompatibilityRow(object):
     """Python2/3 compatibility wrapper of sqlite3.Row"""
     def __init__(self, row):
         self._row = row
-    
+
     def __getitem__(self, key):
         if sys.version_info < (3,) and isinstance(key, unicode):
             key = key.encode('utf-8')
         return self._row[key]
-    
+
     def keys(self):
         return self._row.keys()
-    
+
     def __str__(self):
         return str(self._row)
 
@@ -201,14 +201,14 @@ def regexp(pattern, string):
 
 class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-public-methods
     """A primsms_jobs Job Database object
-    
-    Usually this is called without arguments (prisms_jobs.JobDB()) to open or 
+
+    Usually this is called without arguments (prisms_jobs.JobDB()) to open or
     create a database in the default location.
-            
+
     Args:
         dbpath (str, optional): Path to JobDB sqlite database. By default,
             uses ``prisms_jobs.config.dbpath()``.
-        
+
     """
 
     def __init__(self, dbpath=None):
@@ -247,12 +247,12 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             self.conn.row_factory = sqlite3.Row
             self.conn.create_function("REGEXP", 2, regexp)
             self.curs = self.conn.cursor()
-            
+
             # check columns
             status_type = job_status_type_dict()
             self.curs.execute("SELECT * from jobs")
             cols = [desc[0] for desc in self.curs.description]
-            
+
             for c in status_type:
                 if c not in cols:
                     warnings.warn("Column '" + c + "' not in prisms_jobs jobs table.")
@@ -269,7 +269,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 
         Args:
             job_status (dict):
-                Accepts a dictionary of data comprising the record. 
+                Accepts a dictionary of data comprising the record.
                 Create ``job_status`` using prisms_jobs.jobdb.job_status_dict().
 
         """
@@ -282,7 +282,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
     def update(self):
         """Update records using qstat.
 
-        Any jobs found using qstat that are not in the jobs database are saved 
+        Any jobs found using qstat that are not in the jobs database are saved
         in 'self.untracked'.
         """
 
@@ -330,7 +330,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
                         jobstatus["jobstatus"], jobstatus["elapsedtime"],
                         jobstatus["starttime"], jobstatus["completiontime"],
                         jobstatus["qstatstr"], int(time.time()), key))
-        
+
         self.conn.commit()
 
         # update taskstatus for non-auto jobs
@@ -819,11 +819,11 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
 
     def complete_job(self, jobid=None, job=None):
         """Mark job taskstatus as 'Complete'
-        
+
         Args:
             jobid (str): ID of job
             job (sqlite3.Row object): Job record from database
-        
+
         Raises:
             prisms_jobs.EligibilityError: If not job not eligible to be marked 'Complete'
         """
@@ -855,8 +855,8 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         """Print record summary
 
         Args:
-            r (dict): a dict-like object containing: "jobid", "jobname", "nodes", 
-                "procs",  "walltime", "jobstatus", "elapsedtime", "taskstatus", 
+            r (dict): a dict-like object containing: "jobid", "jobname", "nodes",
+                "procs",  "walltime", "jobstatus", "elapsedtime", "taskstatus",
                 "auto", and "continuation_jobid"
         """
 
@@ -881,7 +881,7 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             r (dict): a dict-like object
         """
         print("#Record:")
-        for key in r:
+        for key in r.keys():
             if isinstance(r[key], string_types):
                 s = "\"" + r[key] + "\""    #pylint: disable=invalid-name
                 if re.search("\n", s):
@@ -964,12 +964,15 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
             full (bool): If True, print as key:val pair list, If (default) False,
                 print single row summary in 'qstat' style.
         """
+        if len(self.untracked) == 0:
+            return
         print("Untracked:")
         if not full:
             self.print_header()
         sort = sorted(self.untracked, key=lambda rec: rec["jobid"])
         for r in sort:  #pylint: disable=invalid-name
             tmp = dict(r)
+
             tmp["continuation_jobid"] = "-"
             tmp["auto"] = 0
             tmp["taskstatus"] = "Untracked"
@@ -1020,14 +1023,14 @@ def complete_job(jobid=None, dbpath=None,):
     """Mark the job as 'Complete' if possible
 
     Args:
-        dbpath (str): Path to JobDB database. 
-        
+        dbpath (str): Path to JobDB database.
+
             If not given, use default database.
-        
-        jobid (str): ID of job to mark 'Complete'. 
-        
+
+        jobid (str): ID of job to mark 'Complete'.
+
             If not given, uses current job ID determined from the environment.
-    
+
     Raises:
         JobsError: If job ID could not be determined
     """
@@ -1048,15 +1051,15 @@ def error_job(message, jobid=None, dbpath=None):
 
     Args:
         message (str): Error message to save in JobDB.
-        
-        dbpath (str, optional): Path to JobDB database. 
-        
+
+        dbpath (str, optional): Path to JobDB database.
+
             If not given, use default database.
-        
-        jobid (str, optional): ID of job to mark 'Error: message'. 
-        
+
+        jobid (str, optional): ID of job to mark 'Error: message'.
+
             If not given, uses current job ID determined from the environment.
-    
+
     Raises:
         JobsError: If job ID could not be determined
     """
@@ -1069,6 +1072,3 @@ def error_job(message, jobid=None, dbpath=None):
     job = db.select_job(jobid)
     db.error_job(message, job=job)
     db.close()
-
-
-
