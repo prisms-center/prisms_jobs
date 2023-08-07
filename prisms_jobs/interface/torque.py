@@ -56,9 +56,35 @@ def _qstat(jobid=None, username=getlogin(), full=False):
         stdout = run(qopt)[0]
 
         # Get the jobids
-        jobid = []
+        jobid = set()
         for line in StringIO(stdout):
-            jobid += [line.rstrip("\n")]
+            jobid.add(line.rstrip("\n"))
+
+        # on braid, it is actually faster to now query the entire queue once and filter
+        # by jobid in python than to call qstat -f on each job
+        qopt = ["qstat"]
+        qopt += ["-f"]
+
+        # get status of every job
+        stdout = run(qopt)[0]
+
+        # filter jobs by jobid
+        jobid_matched = False
+        filtered_output = ''
+        for line in StringIO(stdout):
+            # if the local jobid is in the set of jobids, start saving the qstat info
+            # otherwise, continue
+            if 'Job Id:' in line:
+                local_jobid = line.split(':')[1].strip()
+                if local_jobid in jobid:
+                    jobid_matched = True
+                else:
+                    jobid_matched = False
+            if jobid_matched == True:
+                filtered_output += line
+            else:
+                continue
+        return filtered_output
 
     opt = ["qstat"]
     # If there are jobid(s), you don't need a username
