@@ -103,7 +103,7 @@ def hours(walltime):
         sys.exit()
 
 def strftimedelta(seconds):     #pylint: disable=redefined-outer-name
-    """Convert seconds to D+:HH:MM:SS"""
+    """Convert seconds to D-HH:MM:SS"""
     seconds = int(seconds)
 
     day_in_seconds = 24.0*3600.0
@@ -119,7 +119,10 @@ def strftimedelta(seconds):     #pylint: disable=redefined-outer-name
     minute = int(seconds/minute_in_seconds)
     seconds -= minute*minute_in_seconds
 
-    return str(day) + ":" + ("%02d" % hour) + ":" + ("%02d" % minute) + ":" + ("%02d" % seconds)
+    if day == 0:
+        return ("%02d" % hour) + ":" + ("%02d" % minute) + ":" + ("%02d" % seconds)
+    else:
+        return str(day) + "-" + ("%02d" % hour) + ":" + ("%02d" % minute) + ":" + ("%02d" % seconds)
 
 def exetime(deltatime):
     """Get the exetime string for the PBS '-a'option from a [[[DD:]MM:]HH:]SS string

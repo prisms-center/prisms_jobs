@@ -43,8 +43,8 @@ def _squeue(jobid=None, username=getlogin(), full=False, sformat=None):    #pyli
 
             else:
                 # First, get jobids that belong to that username using
-                # squeue (-h strips the header)
-                sopt = ["squeue", "-h", "-u", username]
+                # squeue (-h strips the header, %A displays only jobid)
+                sopt = ["squeue", "-h", "-u", username, "-o", "%A"]
 
                 qsout = run(sopt)[0]
 
@@ -119,12 +119,13 @@ def sub_string(job):
             jobstr += "#SBATCH --mail-type=END\n"
         if 'a' in job.message:
             jobstr += "#SBATCH --mail-type=FAIL\n"
-    # SLURM does assignment to no. of nodes automatically
-    # jobstr += "#SBATCH -N {0}\n".format(job.nodes)
+    jobstr += "#SBATCH -N {0}\n".format(job.nodes)
     if job.queue is not None:
         jobstr += "#SBATCH -p {0}\n".format(job.queue)
     if job.constraint is not None:
         jobstr += "#SBATCH --constraint={0}\n".format(job.constraint)
+    if job.exclude is not None:
+        jobstr += "#SBATCH -x {0}\n".format(job.exclude)
     jobstr += "{0}\n".format(job.command)
 
     return jobstr
@@ -258,18 +259,30 @@ def job_status(jobid=None):
 
 
         # Look for timing info
-        m = re.search(r"RunTime=\s*([0-9]*:[0-9]*:[0-9]*)\s", line) #pylint: disable=invalid-name
+        m = re.search(r"RunTime=\s*([0-9]*-)?([0-9]*:[0-9]*:[0-9]*)\s", line) #pylint: disable=invalid-name
         if m:
-            if m.group(1) == "Unknown":
+            if m.group(1) == "Unknown" or m.group(2) == "Unknown":
                 continue
-            hrs, mns, scs = m.group(1).split(":")
-            runtime = datetime.timedelta(hours=int(hrs), minutes=int(mns), seconds=int(scs))
-            jobstatus["elapsedtime"] = runtime.seconds
+            if m.group(1) == None:
+                days = 0
+            else:
+                days = m.group(1).split('-')[0]
+            hrs, mns, scs = m.group(2).split(":")
+            runtime = datetime.timedelta(days=int(days), hours=int(hrs), minutes=int(mns), seconds=int(scs))
+            jobstatus["elapsedtime"] = int(runtime.total_seconds())
+            continue
 
-            m = re.match(r"\S*\s*TimeLimit=\s*([0-9]*:[0-9]*:[0-9]*)\s", line) #pylint: disable=invalid-name
-            if m:
-                walltime = datetime.timedelta(hours=int(hrs), minutes=int(mns), seconds=int(scs))
-                jobstatus["walltime"] = walltime.seconds
+        m = re.match(r"\S*\s*TimeLimit=\s*([0-9]*-)?([0-9]*:[0-9]*:[0-9]*)\s", line) #pylint: disable=invalid-name
+        if m:
+            if m.group(1) == "Unknown" or m.group(2) == "Unknown":
+                continue
+            if m.group(1) == None:
+                days = 0
+            else:
+                days = m.group(1).split('-')[0]
+            hrs, mns, scs = m.group(2).split(":")
+            walltime = datetime.timedelta(days=int(days), hours=int(hrs), minutes=int(mns), seconds=int(scs))
+            jobstatus["walltime"] = int(walltime.total_seconds())
             continue
 
         # Grab the job start time

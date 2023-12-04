@@ -200,7 +200,7 @@ def regexp(pattern, string):
     return re.match(pattern, string) is not None
 
 class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-public-methods
-    """A primsms_jobs Job Database object
+    """A prisms_jobs Job Database object
     
     Usually this is called without arguments (prisms_jobs.JobDB()) to open or 
     create a database in the default location.
@@ -316,22 +316,35 @@ class JobDB(object):    #pylint: disable=too-many-instance-attributes, too-many-
         for key, jobstatus in iteritems(newstatus):
             if jobstatus == "C":
                 self.curs.execute(
-                    "UPDATE jobs SET jobstatus=?, elapsedtime=?, modifytime=? WHERE jobid=?",
-                    ("C", None, int(time.time()), key))
-            #elif jobstatus["qstatstr"] is None:
-            #    self.curs.execute(
-            #    "UPDATE jobs SET jobstatus=?, elapsedtime=?, modifytime=? WHERE jobid=?",
-            #    (jobstatus["jobstatus"], jobstatus["elapsedtime"], int(time.time()), key))
-            else:
+                    "UPDATE jobs SET jobstatus=?, elapsedtime=?, modifytime=?\
+                    WHERE jobid=?",
+                    ("C", None, int(time.time()),
+                     key))
+            # running jobs should have all fields updated because some may change,
+            # e.g. number of nodes from Q -> R may change
+            elif jobstatus["jobstatus"] == "R":
                 self.curs.execute(
                     "UPDATE jobs SET jobstatus=?, elapsedtime=?, starttime=?,\
-                     completiontime=?, qstatstr=?, modifytime=? WHERE jobid=?",
+                    completiontime=?, qstatstr=?, modifytime=?, nodes=?\
+                    WHERE jobid=?",
                     (
                         jobstatus["jobstatus"], jobstatus["elapsedtime"],
                         jobstatus["starttime"], jobstatus["completiontime"],
-                        jobstatus["qstatstr"], int(time.time()), key))
-        
-        self.conn.commit()
+                        jobstatus["qstatstr"], int(time.time()), jobstatus["nodes"],
+                        key))
+            # all other statuses will have missing info, e.g. number of nodes
+            # therefore, all that must be done is to update the jobstatus,
+            # clear elapsedtime if it is there (e.g. running job -> check),
+            # and set the last modified time and qstatstring
+            else:
+                self.curs.execute(
+                    "UPDATE jobs SET jobstatus=?, elapsedtime=?, modifytime=?,\
+                    qstatstr=?\
+                    WHERE jobid=?",
+                    (jobstatus["jobstatus"], None, int(time.time()),
+                     jobstatus["qstatstr"],
+                     key))
+            self.conn.commit()
 
         # update taskstatus for non-auto jobs
         self.curs.execute(

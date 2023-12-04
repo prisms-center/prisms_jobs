@@ -33,6 +33,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         pmem (str):     Memory requsted. Ex: ``"3800mb"``
         qos (str):      Ex: ``"flux"``
         queue (str):    Ex: ``"fluxoe"``
+        exclude (str):  Nodes to exclude (slurm only). Ex: ``"node01,node02,node03"``
 
         exetime (str):  Time after which the job is eligible for execution. Ex: ``"1100"``
 
@@ -82,6 +83,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         pmem (str):     Memory requsted. Ex: ``"3800mb"``
         qos (str):      Ex: ``"flux"``
         queue (str):    Ex: ``"fluxoe"``
+        exclude (str):  Nodes to exclude (slurm only). Ex: ``"node01,node02,node03"``
         exetime (str):  Time after which the job is eligible for execution. Ex: ``"1100"``
         message (str):  When to send email about the job. Ex: ``"abe"``
         email (str):  Where to send notifications.  Ex: ``"jdoe@umich.edu"``
@@ -94,7 +96,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
 
     def __init__(self, name="STDIN", account=None, nodes=None, ppn=None, walltime=None, #pylint: disable=too-many-arguments, too-many-locals
-                 pmem=None, qos=None, queue=None, exetime=None, message="a", email=None,
+                 pmem=None, qos=None, queue=None, exclude=None, exetime=None, message="a", email=None,
                  priority="0", constraint=None, command=None, auto=False, substr=None):
 
         if substr != None:
@@ -127,6 +129,9 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
         # queue string
         self.queue = queue
+
+        # nodes to exclude
+        self.exclude = exclude
 
         # time eligible for execution
         # PBS -a exetime
