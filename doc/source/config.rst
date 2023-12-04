@@ -5,6 +5,11 @@ Configuration
 
 Some configuration is possible:
 
+- ``PRISMS_JOBS_SOFTWARE``: (optional, default is detected automatically)
+
+    The job submission software can be chosen by setting the ``$PRISMS_JOBS_SOFTWARE``
+    environmental variable to ``torque`` or ``slurm``.
+
 - ``PRISMS_JOBS_DIR``: (optional, default=``$HOME/.prisms_jobs``) 
 
     The jobs database is stored at ``$PBS_JOB_DIR/jobs.db``.
