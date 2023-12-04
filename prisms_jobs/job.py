@@ -33,6 +33,8 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         pmem (str):     Memory requsted. Ex: ``"3800mb"``
         qos (str):      Ex: ``"flux"``
         queue (str):    Ex: ``"fluxoe"``
+        constraint(str): Constraint. Ex: ``"haswell"``
+        gpus(int):      How many gpus to request (slurm only). Ex: 4
         exclude (str):  Nodes to exclude (slurm only). Ex: ``"node01,node02,node03"``
 
         exetime (str):  Time after which the job is eligible for execution. Ex: ``"1100"``
@@ -89,6 +91,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
         email (str):  Where to send notifications.  Ex: ``"jdoe@umich.edu"``
         priority (str):  Priority ranges from (low) -1024 to (high) 1023. Ex: ``"-200"``
         constraint (str): Constraint. Ex: ``"haswell"``
+        gpus (int)       How many gpus to request (slurm only). Ex: 4
         command (str):   String with command to run by script. Ex: ``"echo \"hello\" > test.txt"``
         auto (bool):     Indicates an automatically re-submitting job.  Ex: ``True``
 
@@ -96,7 +99,7 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
 
     def __init__(self, name="STDIN", account=None, nodes=None, ppn=None, walltime=None, #pylint: disable=too-many-arguments, too-many-locals
-                 pmem=None, qos=None, queue=None, exclude=None, exetime=None, message="a", email=None,
+                 pmem=None, qos=None, queue=None, gpus=None, exclude=None, exetime=None, message="a", email=None,
                  priority="0", constraint=None, command=None, auto=False, substr=None):
 
         if substr != None:
@@ -129,6 +132,12 @@ class Job(object):  #pylint: disable=too-many-instance-attributes
 
         # queue string
         self.queue = queue
+
+        # number of gpus to request
+        if gpus is not None:
+            self.gpus = int(gpus)
+        else:
+            self.gpus = None
 
         # nodes to exclude
         self.exclude = exclude

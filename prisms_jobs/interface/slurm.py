@@ -106,7 +106,6 @@ def sub_string(job):
     if job.account is not None:
         jobstr += "#SBATCH -A {0}\n".format(job.account)
     jobstr += "#SBATCH -t {0}\n".format(job.walltime)
-    jobstr += "#SBATCH -n {0}\n".format(job.nodes*job.ppn)
     if job.pmem is not None:
         jobstr += "#SBATCH --mem-per-cpu={0}\n".format(job.pmem)
     if job.qos is not None:
@@ -119,9 +118,13 @@ def sub_string(job):
             jobstr += "#SBATCH --mail-type=END\n"
         if 'a' in job.message:
             jobstr += "#SBATCH --mail-type=FAIL\n"
-    jobstr += "#SBATCH -N {0}\n".format(job.nodes)
-    if job.queue is not None:
-        jobstr += "#SBATCH -p {0}\n".format(job.queue)
+    if job.gpus is not None: # GPUs do not use ppn, partition, # nodes (NERSC settings...)
+        jobstr += "#SBATCH --gpus={0}\n".format(job.gpus)
+    else:
+        if job.queue is not None:
+            jobstr += "#SBATCH -p {0}\n".format(job.queue)
+            jobstr += "#SBATCH -N {0}\n".format(job.nodes)
+            jobstr += "#SBATCH --ntasks-per-node={0}\n".format(job.ppn)
     if job.constraint is not None:
         jobstr += "#SBATCH --constraint={0}\n".format(job.constraint)
     if job.exclude is not None:
