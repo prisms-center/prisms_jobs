@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, division, print_function, unicode_literals)
 from builtins import *
 
-import imp
+import importlib
 import json
 import os
 import six
@@ -31,8 +31,13 @@ def detect_software():
 
             * 'torque' - detected via 'qsub'
             * 'slurm' - detected via 'sbatch'
+            * set manually with the PRISMS_JOBS_SOFTWARE environment variable
     """
-    if find_executable('qsub') is not None:
+    if os.environ.get('PRISMS_JOBS_SOFTWARE') == 'torque':
+        return 'torque'
+    elif os.environ.get('PRISMS_JOBS_SOFTWARE') == 'slurm':
+        return 'slurm'
+    elif find_executable('qsub') is not None:
         return 'torque'
     elif find_executable('sbatch') is not None:
         return 'slurm'
@@ -67,12 +72,7 @@ def set_software(software_name=None):
         import prisms_jobs.interface.slurm as software
     else:
         try:
-            f, filename, description = imp.find_module(software_name)
-            try:
-                software = imp.load_module(software_name, f, filename, description)
-            finally:
-                if f:
-                    f.close()
+            software = importlib.import_module(software_name)
         except:
             raise Exception('Unrecognized \'software\': ' + software_name)
     global __software
